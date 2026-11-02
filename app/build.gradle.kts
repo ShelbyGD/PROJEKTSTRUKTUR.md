@@ -1,6 +1,3 @@
-// Dateipfad: app/build.gradle.kts
-// Build-Konfiguration für das Modul "app" (Jetpack Compose, Material 3, SDK-Versionen).
-
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -13,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "com.dienstplan.app"
-        minSdk = 26 // Android 8.0+ (unterstützt moderne Datums-/Zeitberechnung nativ)
+        minSdk = 26
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -22,8 +19,6 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Signiert die Release-APK automatisch mit dem Standard-Debug-Key,
-            // damit du sie direkt aus GitHub Actions auf dem Handy installieren kannst.
             signingConfig = signingConfigs.getByName("debug")
         }
     }
@@ -48,7 +43,6 @@ android {
 }
 
 dependencies {
-    // Jetpack Compose & Material Design 3 (Material You)
     val composeBom = platform("androidx.compose:compose-bom:2024.10.01")
     implementation(composeBom)
     implementation("androidx.core:core-ktx:1.13.1")
