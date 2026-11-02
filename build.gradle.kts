@@ -1,6 +1,3 @@
-// Dateipfad: build.gradle.kts
-// Haupt-Build-Datei im Wurzelverzeichnis: Definiert die Plugin-Versionen für das gesamte Projekt.
-
 plugins {
     id("com.android.application") version "8.7.2" apply false
     id("org.jetbrains.kotlin.android") version "2.0.21" apply false
