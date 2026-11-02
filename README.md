@@ -1,0 +1,1 @@
+# PROJEKTSTRUKTUR.md
