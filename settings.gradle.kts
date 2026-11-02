@@ -1,6 +1,3 @@
-// Dateipfad: settings.gradle.kts
-// Legt fest, woher Gradle Plugins und Bibliotheken (Google, MavenCentral) herunterlädt.
-
 pluginManagement {
     repositories {
         google()
