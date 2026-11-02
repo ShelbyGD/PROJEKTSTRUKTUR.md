@@ -1,35 +1,26 @@
-Dateipfad: .github/workflows/android.yml
-Automatischer Build-Prozess (CI/CD) für GitHub Actions ohne Android Studio.
 name: Android Release APK bauen
 on:
-Startet automatisch bei jedem Speichern (Commit) auf dem Haupt-Branch
 push:
 branches: [ "main", "master" ]
-Erlaubt zusätzlich das manuelle Starten per Knopfdruck im Reiter "Actions"
 workflow_dispatch:
 jobs:
 build-apk:
 name: Kompiliere Dienstplan-App
 runs-on: ubuntu-latest
 steps:
-# 1. Quellcode aus deinem Repository laden
 - name: Repository auschecken
 uses: actions/checkout@v4
-# 2. Java 17 installieren (wird für Kotlin & Android benötigt)
 - name: Java JDK 17 einrichten
 uses: actions/setup-java@v4
 with:
 distribution: 'temurin'
 java-version: '17'
-# 3. Gradle 8.9 direkt installieren (spart uns das Hochladen von Wrapper-Dateien am Handy)
 - name: Gradle 8.9 einrichten
 uses: gradle/actions/setup-gradle@v4
 with:
 gradle-version: '8.9'
-# 4. Die signierte Release-APK kompilieren
 - name: Release-APK bauen
 run: gradle assembleRelease --stacktrace
-# 5. Fertige APK zum Download im GitHub-Webinterface bereitstellen
 - name: Fertige APK hochladen
 uses: actions/upload-artifact@v4
 with:
