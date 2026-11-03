@@ -1,28 +1,36 @@
 name: Android Release APK bauen
+
 on:
-push:
-branches: [ "main", "master" ]
-workflow_dispatch:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
 jobs:
-build-apk:
-name: Kompiliere Dienstplan-App
-runs-on: ubuntu-latest
-steps:
-- name: Repository auschecken
-uses: actions/checkout@v4
-- name: Java JDK 17 einrichten
-uses: actions/setup-java@v4
-with:
-distribution: 'temurin'
-java-version: '17'
-- name: Gradle 8.9 einrichten
-uses: gradle/actions/setup-gradle@v4
-with:
-gradle-version: '8.9'
-- name: Release-APK bauen
-run: gradle assembleRelease --stacktrace
-- name: Fertige APK hochladen
-uses: actions/upload-artifact@v4
-with:
-name: Dienstplan-Release-APK
-path: app/build/outputs/apk/release/app-release.apk
+  build-apk:
+    name: Kompiliere Dienstplan-App
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: Java JDK 17 einrichten
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Gradle 8.9 einrichten
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Release-APK bauen
+        run: gradle assembleRelease --stacktrace
+
+      - name: Fertige APK hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: Dienstplan-Release-APK
+          path: app/build/outputs/apk/release/*.apk
+          
