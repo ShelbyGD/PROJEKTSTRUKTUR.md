@@ -65,6 +65,9 @@ dependencies {
     implementation("androidx.room:room-ktx:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")
 
-    // Apache PDFBox für Android (mit Bindestrich bei tom-roush)
+    // Apache PDFBox für statische PDF-Dienstpläne
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
+
+    // Google ML Kit Text Recognition für den Kamera-Scan
+    implementation("com.google.mlkit:text-recognition:16.0.1")
 }
