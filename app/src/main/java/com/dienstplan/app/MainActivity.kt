@@ -1,15 +1,20 @@
 package com.dienstplan.app
 
 import android.os.Bundle
+import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ViewList
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -28,6 +33,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.dienstplan.app.data.EintragEntity
@@ -38,6 +44,8 @@ import com.dienstplan.app.ui.components.FlacheListenAnsicht
 import com.dienstplan.app.ui.components.KlassischerMonatsKalender
 import com.dienstplan.app.ui.components.MonatsUndGehaltsLeiste
 import com.dienstplan.app.ui.theme.DienstplanTheme
+import com.dienstplan.app.util.PdfImportHelfer
+import com.dienstplan.app.util.ScanHelfer
 import java.time.LocalDate
 
 class MainActivity : ComponentActivity() {
@@ -55,6 +63,7 @@ class MainActivity : ComponentActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DienstplanHauptbildschirm(viewModel: DienstplanViewModel = viewModel()) {
+    val context = LocalContext.current
     val aktuellerMonat by viewModel.aktuellerMonat.collectAsState()
     val nrwAktiv by viewModel.nrwDatenAktiv.collectAsState()
     val alleEintraege by viewModel.alleEintraege.collectAsState()
@@ -65,9 +74,40 @@ fun DienstplanHauptbildschirm(viewModel: DienstplanViewModel = viewModel()) {
     var dialogDatum by remember { mutableStateOf<String?>(null) }
     var bearbeiteterEintrag by remember { mutableStateOf<EintragEntity?>(null) }
 
-    // Einträge auf den aktuell angezeigten Monat filtern
-    val monatsPraefix = aktuellerMonat.toString()
-    val monatsEintraege = alleEintraege.filter { it.datum.startsWith(monatsPraefix) }
+    // Dateiauswahl für statische PDF-Dienstpläne
+    val pdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            val importiert = PdfImportHelfer.pdfEinlesen(context, uri)
+            if (importiert.isNotEmpty()) {
+                viewModel.mehrereEintraegeSpeichern(importiert)
+                Toast.makeText(context, "${importiert.size} Schicht(en) aus PDF importiert!", Toast.LENGTH_LONG).show()
+            } else {
+                Toast.makeText(context, "Keine Schichten im PDF erkannt.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    // Kamera-Starter für Google ML Kit Texterkennung
+    val kameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
+        if (bitmap != null) {
+            ScanHelfer.bildScannen(
+                bitmap = bitmap,
+                onErfolg = { gescannt ->
+                    if (gescannt.isNotEmpty()) {
+                        viewModel.mehrereEintraegeSpeichern(gescannt)
+                        Toast.makeText(context, "${gescannt.size} Eintrag/Einträge gescannt!", Toast.LENGTH_LONG).show()
+                    } else {
+                        Toast.makeText(context, "Keine Uhrzeiten (HH:MM - HH:MM) erkannt.", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                onFehler = { fehler ->
+                    Toast.makeText(context, fehler, Toast.LENGTH_SHORT).show()
+                }
+            )
+        }
+    }
+
+    val monatsEintraege = alleEintraege.filter { it.datum.startsWith(aktuellerMonat.toString()) }
     val farbenMap = alleFarben.associate { it.einsatzort to it.farbHex }
 
     Scaffold(
@@ -77,6 +117,12 @@ fun DienstplanHauptbildschirm(viewModel: DienstplanViewModel = viewModel()) {
                 TopAppBar(
                     title = { Text("Dienstplan", style = MaterialTheme.typography.titleLarge) },
                     actions = {
+                        IconButton(onClick = { pdfLauncher.launch("application/pdf") }) {
+                            Icon(Icons.Default.PictureAsPdf, contentDescription = "PDF importieren")
+                        }
+                        IconButton(onClick = { kameraLauncher.launch(null) }) {
+                            Icon(Icons.Default.CameraAlt, contentDescription = "Dienstplan scannen")
+                        }
                         IconButton(onClick = { istKalenderAnsicht = !istKalenderAnsicht }) {
                             Icon(
                                 imageVector = if (istKalenderAnsicht) Icons.Default.ViewList else Icons.Default.CalendarMonth,
@@ -84,10 +130,7 @@ fun DienstplanHauptbildschirm(viewModel: DienstplanViewModel = viewModel()) {
                             )
                         }
                         IconButton(onClick = { zeigeEinstellungen = true }) {
-                            Icon(
-                                imageVector = Icons.Default.Settings,
-                                contentDescription = "Einstellungen & Farben"
-                            )
+                            Icon(Icons.Default.Settings, contentDescription = "Einstellungen")
                         }
                     }
                 )
@@ -103,39 +146,18 @@ fun DienstplanHauptbildschirm(viewModel: DienstplanViewModel = viewModel()) {
             }
         }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-        ) {
-            MonatsUndGehaltsLeiste(
-                monat = aktuellerMonat,
-                monatsEintraege = monatsEintraege,
-                onMonatWechsel = { viewModel.monatWechseln(it) }
-            )
-
+        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+            MonatsUndGehaltsLeiste(aktuellerMonat, monatsEintraege) { viewModel.monatWechseln(it) }
             if (istKalenderAnsicht) {
-                KlassischerMonatsKalender(
-                    monat = aktuellerMonat,
-                    eintraege = monatsEintraege,
-                    farbenMap = farbenMap,
-                    nrwAktiv = nrwAktiv,
-                    onTagKlick = { datum, eintrag ->
-                        bearbeiteterEintrag = eintrag
-                        dialogDatum = datum.toString()
-                    }
-                )
+                KlassischerMonatsKalender(aktuellerMonat, monatsEintraege, farbenMap, nrwAktiv) { datum, eintrag ->
+                    bearbeiteterEintrag = eintrag
+                    dialogDatum = datum.toString()
+                }
             } else {
-                FlacheListenAnsicht(
-                    monat = aktuellerMonat,
-                    eintraege = monatsEintraege,
-                    farbenMap = farbenMap,
-                    nrwAktiv = nrwAktiv,
-                    onTagKlick = { datum, eintrag ->
-                        bearbeiteterEintrag = eintrag
-                        dialogDatum = datum.toString()
-                    }
-                )
+                FlacheListenAnsicht(aktuellerMonat, monatsEintraege, farbenMap, nrwAktiv) { datum, eintrag ->
+                    bearbeiteterEintrag = eintrag
+                    dialogDatum = datum.toString()
+                }
             }
         }
     }
@@ -144,14 +166,8 @@ fun DienstplanHauptbildschirm(viewModel: DienstplanViewModel = viewModel()) {
         EintragDialog(
             initialDatum = dialogDatum!!,
             bestehenderEintrag = bearbeiteterEintrag,
-            onSpeichern = { eintrag ->
-                viewModel.eintragSpeichern(eintrag)
-                dialogDatum = null
-            },
-            onLoeschen = { eintrag ->
-                viewModel.eintragLoeschen(eintrag)
-                dialogDatum = null
-            },
+            onSpeichern = { viewModel.eintragSpeichern(it); dialogDatum = null },
+            onLoeschen = { viewModel.eintragLoeschen(it); dialogDatum = null },
             onAbbrechen = { dialogDatum = null }
         )
     }
