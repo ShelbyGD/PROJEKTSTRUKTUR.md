@@ -7,9 +7,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -52,12 +53,7 @@ fun KlassischerMonatsKalender(
     val zellen = List(ersterWochentagOffset) { null } + (1..monat.lengthOfMonth()).map { monat.atDay(it) }
     val wochenZeilen = zellen.chunked(7)
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-    ) {
-        // Kopfzeile mit den Wochentagen (Mo - So)
+    Column(modifier = Modifier.fillMaxSize()) {
         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
             wochentage.forEach { tagName ->
                 Text(
@@ -71,63 +67,63 @@ fun KlassischerMonatsKalender(
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-        // Flaches Kalenderraster
-        wochenZeilen.forEach { woche ->
-            Row(modifier = Modifier.fillMaxWidth()) {
-                for (i in 0 until 7) {
-                    val datum = woche.getOrNull(i)
-                    if (datum == null) {
-                        Box(modifier = Modifier.weight(1f).height(64.dp))
-                    } else {
-                        val tagesEintraege = eintraege.filter { it.datum == datum.toString() }
-                        val feiertag = if (nrwAktiv) NrwDatenHelfer.holeFeiertagNrw(datum) else null
-                        val ferien = if (nrwAktiv) NrwDatenHelfer.holeSchulferienNrw(datum) else null
-                        val istAusgewaehlt = datum == ausgewaehlterTag
+        // Vollbild-Kalenderraster (nutzt den freien Bildschirmplatz automatisch aus)
+        Column(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            wochenZeilen.forEach { woche ->
+                Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    for (i in 0 until 7) {
+                        val datum = woche.getOrNull(i)
+                        if (datum == null) {
+                            Box(modifier = Modifier.weight(1f).fillMaxHeight())
+                        } else {
+                            val tagesEintraege = eintraege.filter { it.datum == datum.toString() }
+                            val feiertag = if (nrwAktiv) NrwDatenHelfer.holeFeiertagNrw(datum) else null
+                            val ferien = if (nrwAktiv) NrwDatenHelfer.holeSchulferienNrw(datum) else null
+                            val istAusgewaehlt = datum == ausgewaehlterTag
 
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(64.dp)
-                                .border(
-                                    width = if (istAusgewaehlt) 1.5.dp else 0.25.dp,
-                                    color = if (istAusgewaehlt) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
-                                )
-                                .clickable {
-                                    ausgewaehlterTag = datum
-                                    onTagKlick(datum, tagesEintraege.firstOrNull())
-                                }
-                                .padding(3.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .border(
+                                        width = if (istAusgewaehlt) 1.5.dp else 0.25.dp,
+                                        color = if (istAusgewaehlt) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                                    )
+                                    .clickable {
+                                        ausgewaehlterTag = datum
+                                        onTagKlick(datum, tagesEintraege.firstOrNull())
+                                    }
+                                    .padding(4.dp)
                             ) {
-                                Text(
-                                    text = datum.dayOfMonth.toString(),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = if (feiertag != null || istAusgewaehlt) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (feiertag != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-                                )
-                                if (ferien != null) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(5.dp)
-                                            .clip(CircleShape)
-                                            .background(MaterialTheme.colorScheme.tertiary)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = datum.dayOfMonth.toString(),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = if (feiertag != null || istAusgewaehlt) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (feiertag != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                                    )
+                                    if (ferien != null) {
+                                        Box(
+                                            modifier = Modifier.size(6.dp).clip(CircleShape)
+                                                .background(MaterialTheme.colorScheme.tertiary)
+                                        )
+                                    }
+                                }
+                                tagesEintraege.take(3).forEach { eintrag ->
+                                    val farbe = farbenMap[eintrag.einsatzort]?.let { Color(it) }
+                                        ?: MaterialTheme.colorScheme.primary
+                                    Text(
+                                        text = eintrag.titel,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = farbe,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
                                 }
-                            }
-                            tagesEintraege.take(2).forEach { eintrag ->
-                                val farbe = farbenMap[eintrag.einsatzort]?.let { Color(it) }
-                                    ?: MaterialTheme.colorScheme.primary
-                                Text(
-                                    text = eintrag.titel,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = farbe,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
                             }
                         }
                     }
@@ -135,12 +131,20 @@ fun KlassischerMonatsKalender(
             }
         }
 
-        // Detailbereich unter dem Kalender für den ausgewählten Tag
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
+
+        // Kompakte Tages-Detailleiste am unteren Bildschirmrand
         val ausgewaehlteEintraege = eintraege.filter { it.datum == ausgewaehlterTag.toString() }
         val tagFeiertag = if (nrwAktiv) NrwDatenHelfer.holeFeiertagNrw(ausgewaehlterTag) else null
         val tagFerien = if (nrwAktiv) NrwDatenHelfer.holeSchulferienNrw(ausgewaehlterTag) else null
 
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 110.dp, max = 170.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -152,30 +156,26 @@ fun KlassischerMonatsKalender(
                     fontWeight = FontWeight.Bold
                 )
                 TextButton(onClick = { onTagKlick(ausgewaehlterTag, null) }) {
-                    Text("+ Weiterer Eintrag")
+                    Text("+ Eintrag")
                 }
             }
             if (tagFeiertag != null || tagFerien != null) {
                 Text(
                     text = listOfNotNull(tagFeiertag, tagFerien).joinToString(" • "),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.tertiary,
-                    modifier = Modifier.padding(bottom = 6.dp)
+                    color = MaterialTheme.colorScheme.tertiary
                 )
             }
             if (ausgewaehlteEintraege.isEmpty()) {
                 Text(
-                    text = "Keine Einträge an diesem Tag. Tippe auf einen Tag im Kalender, um eine Schicht oder einen Termin anzulegen.",
+                    text = "Keine Einträge. Tippe auf '+ Eintrag' oder einen Kalendertag.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
                 ausgewaehlteEintraege.forEach { eintrag ->
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onTagKlick(ausgewaehlterTag, eintrag) }
-                            .padding(vertical = 8.dp),
+                        modifier = Modifier.fillMaxWidth().clickable { onTagKlick(ausgewaehlterTag, eintrag) }.padding(vertical = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
@@ -191,7 +191,6 @@ fun KlassischerMonatsKalender(
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
                 }
             }
         }
