@@ -1,73 +1,75 @@
 package com.dienstplan.app.util
 
+import android.content.Context
 import android.graphics.Bitmap
+import android.net.Uri
 import com.dienstplan.app.data.EintragEntity
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
-import java.time.LocalDate
 
 /**
- * Hilfsklasse für die Kamera-Texterkennung mit Google ML Kit.
+ * Hilfsklasse für die Texterkennung (Kamera & Galerie-Bilder) mit Google ML Kit.
  */
 object ScanHelfer {
 
     /**
-     * Scannt ein Kamerabild (Bitmap) nach Dienstplan-Zeiten und Datumsangaben.
+     * Scannt ein Kamera-Vorschaubild (Bitmap).
      */
-    fun bildScannen(
+    fun bitmapScannen(
         bitmap: Bitmap,
+        standardMonat: String,
         onErfolg: (List<EintragEntity>) -> Unit,
         onFehler: (String) -> Unit
     ) {
-        val bild = InputImage.fromBitmap(bitmap, 0)
-        val erkenner = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-
-        erkenner.process(bild)
-            .addOnSuccessListener { erkannterText ->
-                val gefundeneEintraege = textAuswerten(erkannterText.text)
-                onErfolg(gefundeneEintraege)
-            }
-            .addOnFailureListener { fehler ->
-                onFehler(fehler.localizedMessage ?: "Fehler bei der Texterkennung")
-            }
+        try {
+            val bild = InputImage.fromBitmap(bitmap, 0)
+            bildVerarbeiten(bild, standardMonat, onErfolg, onFehler)
+        } catch (e: Exception) {
+            FehlerLogHelfer.logFehler("Kamera-Scan", "Bitmap konnte nicht geladen werden", e)
+            onFehler("Fehler beim Laden des Kamerabildes")
+        }
     }
 
     /**
-     * Extrahiert Datum (TT.MM.JJJJ), Start-/Endzeit (HH:MM - HH:MM) und Ort aus dem erkannten Text.
+     * Scannt ein hochauflösendes Bild oder einen Screenshot aus der Galerie (Uri).
      */
-    private fun textAuswerten(volltext: String): List<EintragEntity> {
-        val liste = mutableListOf<EintragEntity>()
-        val datumRegex = Regex("""(\d{2})\.(\d{2})\.(\d{4})""")
-        val zeitRegex = Regex("""(\d{2}:\d{2})\s*[-–]\s*(\d{2}:\d{2})""")
-        var aktuellesDatum = LocalDate.now().toString()
-
-        for (zeile in volltext.split("\n")) {
-            datumRegex.find(zeile)?.let { match ->
-                val (tag, monat, jahr) = match.destructured
-                aktuellesDatum = "$jahr-$monat-$tag"
-            }
-
-            zeitRegex.find(zeile)?.let { match ->
-                val (start, ende) = match.destructured
-                // Text hinter der Uhrzeit als Einsatzort übernehmen (falls vorhanden)
-                val restText = zeile.substringAfter(match.value).trim()
-                val ort = restText.ifBlank { "Kamera-Scan" }
-
-                liste.add(
-                    EintragEntity(
-                        datum = aktuellesDatum,
-                        typ = "SCHICHT",
-                        titel = "Gescannte Schicht",
-                        startZeit = start,
-                        endZeit = ende,
-                        pauseMinuten = 30,
-                        stundenlohn = 15.0,
-                        einsatzort = ort
-                    )
-                )
-            }
+    fun bildUriScannen(
+        context: Context,
+        uri: Uri,
+        standardMonat: String,
+        onErfolg: (List<EintragEntity>) -> Unit,
+        onFehler: (String) -> Unit
+    ) {
+        try {
+            val bild = InputImage.fromFilePath(context, uri)
+            bildVerarbeiten(bild, standardMonat, onErfolg, onFehler)
+        } catch (e: Exception) {
+            FehlerLogHelfer.logFehler("Bild-Scan", "Bild-URI konnte nicht gelesen werden: $uri", e)
+            onFehler("Bild konnte nicht geöffnet werden")
         }
-        return liste
+    }
+
+    private fun bildVerarbeiten(
+        bild: InputImage,
+        standardMonat: String,
+        onErfolg: (List<EintragEntity>) -> Unit,
+        onFehler: (String) -> Unit
+    ) {
+        val erkenner = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+        erkenner.process(bild)
+            .addOnSuccessListener { ergebnis ->
+                val volltext = ergebnis.text
+                val vorschau = volltext.trim().take(500).ifBlank { "(Kein Text auf dem Bild erkannt)" }
+                FehlerLogHelfer.logInfo("ML-Kit Scan-Text", "Erkannter Text:\n$vorschau")
+
+                val eintraege = PdfImportHelfer.textZuEintraegen(volltext, standardMonat, "Kamera-Scan")
+                FehlerLogHelfer.logInfo("Scan-Ergebnis", "${eintraege.size} Schicht(en) aus Bild erkannt.")
+                onErfolg(eintraege)
+            }
+            .addOnFailureListener { fehler ->
+                FehlerLogHelfer.logFehler("ML-Kit Scan", "Texterkennung fehlgeschlagen", fehler)
+                onFehler(fehler.localizedMessage ?: "Fehler bei der Texterkennung")
+            }
     }
 }
