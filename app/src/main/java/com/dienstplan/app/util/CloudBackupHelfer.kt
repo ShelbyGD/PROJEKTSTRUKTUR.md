@@ -1,6 +1,7 @@
 package com.dienstplan.app.util
 
 import android.content.Context
+import android.net.Uri
 import com.dienstplan.app.data.DienstplanDatenbank
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -8,43 +9,76 @@ import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 
-/**
- * Hilfsklasse für das Sichern und Wiederherstellen der lokalen Room/SQLite-Datenbank
- * über die Google Drive REST API v3.
- */
 object CloudBackupHelfer {
 
-    // =========================================================================
-    // PLATZHALTER FÜR GOOGLE DRIVE API KEYS (Hier eigene Schlüssel eintragen)
-    // =========================================================================
-    const val GOOGLE_DRIVE_CLIENT_ID = "HIER_GOOGLE_CLIENT_ID_EINTRAGEN"
     const val GOOGLE_DRIVE_API_KEY = "HIER_GOOGLE_API_KEY_EINTRAGEN"
     const val GOOGLE_DRIVE_ACCESS_TOKEN = "HIER_OAUTH_ACCESS_TOKEN_EINTRAGEN"
-
     private const val BACKUP_DATEINAME = "dienstplan_backup.db"
 
     /**
-     * Erstellt ein Backup der aktuellen Room-Datenbank.
-     * Falls die Google-Keys noch Platzhalter sind, wird eine lokale Backup-Datei
-     * im App-Speicher angelegt, damit die Funktion sofort getestet werden kann.
+     * Schreibt alle offenen Änderungen aus dem Zwischenspeicher (WAL) fest in die Datenbank-Datei.
      */
+    private fun datenbankSynchronisieren(context: Context) {
+        try {
+            val db = DienstplanDatenbank.datenbankHolen(context).openHelper.writableDatabase
+            db.query("PRAGMA wal_checkpoint(FULL)").close()
+        } catch (e: Exception) {
+            FehlerLogHelfer.logFehler("DB-Sync", "WAL-Checkpoint Hinweis", e)
+        }
+    }
+
+    /**
+     * Speichert die Datenbank-Datei direkt an einem vom Nutzer gewählten Ort auf dem Smartphone.
+     */
+    suspend fun backupAufGeraetSpeichern(context: Context, zielUri: Uri): String = withContext(Dispatchers.IO) {
+        try {
+            datenbankSynchronisieren(context)
+            val dbDatei = context.getDatabasePath(DienstplanDatenbank.DATENBANK_NAME)
+            if (!dbDatei.exists()) return@withContext "Noch keine Datenbank vorhanden."
+
+            context.contentResolver.openOutputStream(zielUri)?.use { output ->
+                dbDatei.inputStream().use { input -> input.copyTo(output) }
+            }
+            FehlerLogHelfer.logInfo("Geräte-Backup", "Erfolgreich gespeichert unter: $zielUri")
+            "Dienstplan erfolgreich auf dem Gerät gespeichert!"
+        } catch (e: Exception) {
+            FehlerLogHelfer.logFehler("Geräte-Backup", "Speichern auf Gerät fehlgeschlagen", e)
+            "Fehler beim Speichern: ${e.localizedMessage}"
+        }
+    }
+
+    /**
+     * Lädt eine gespeicherte Datenbank-Datei vom Smartphone.
+     */
+    suspend fun backupVomGeraetLaden(context: Context, quellUri: Uri): String = withContext(Dispatchers.IO) {
+        try {
+            val dbDatei = context.getDatabasePath(DienstplanDatenbank.DATENBANK_NAME)
+            File(dbDatei.path + "-wal").delete()
+            File(dbDatei.path + "-shm").delete()
+
+            context.contentResolver.openInputStream(quellUri)?.use { input ->
+                dbDatei.outputStream().use { output -> input.copyTo(output) }
+            }
+            FehlerLogHelfer.logInfo("Geräte-Restore", "Backup geladen von: $quellUri")
+            "Backup geladen! Bitte App einmal kurz neu starten."
+        } catch (e: Exception) {
+            FehlerLogHelfer.logFehler("Geräte-Restore", "Laden vom Gerät fehlgeschlagen", e)
+            "Fehler beim Laden: ${e.localizedMessage}"
+        }
+    }
+
     suspend fun datenbankSichern(context: Context): String = withContext(Dispatchers.IO) {
         try {
-            val dbDatei: File = context.getDatabasePath(DienstplanDatenbank.DATENBANK_NAME)
-            if (!dbDatei.exists()) {
-                return@withContext "Noch keine Datenbank zum Sichern vorhanden."
-            }
-
-            // Lokale Sicherheitskopie im App-Verzeichnis erstellen
-            val lokalesBackup = File(context.filesDir, BACKUP_DATEINAME)
+            datenbankSynchronisieren(context)
+            val dbDatei = context.getDatabasePath(DienstplanDatenbank.DATENBANK_NAME)
+            val lokalesBackup = File(context.getExternalFilesDir(null) ?: context.filesDir, BACKUP_DATEINAME)
             dbDatei.copyTo(lokalesBackup, overwrite = true)
 
-            // Prüfen, ob echte Google Drive Keys eingetragen wurden
             if (GOOGLE_DRIVE_ACCESS_TOKEN.startsWith("HIER_")) {
-                return@withContext "Lokales Backup erstellt (Google Drive API-Key ist noch Platzhalter)."
+                FehlerLogHelfer.logInfo("Backup", "Intern gesichert: ${lokalesBackup.absolutePath}")
+                return@withContext "Im App-Ordner gesichert! (Tipp: Nutze im Menü 'Auf Gerät speichern' für freie Ordnerwahl)."
             }
 
-            // Upload zur Google Drive API v3
             val url = URL("https://www.googleapis.com/upload/drive/v3/files?uploadType=media&key=$GOOGLE_DRIVE_API_KEY")
             val verbindung = (url.openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
@@ -52,53 +86,29 @@ object CloudBackupHelfer {
                 setRequestProperty("Authorization", "Bearer $GOOGLE_DRIVE_ACCESS_TOKEN")
                 setRequestProperty("Content-Type", "application/x-sqlite3")
             }
-
-            verbindung.outputStream.use { output ->
-                dbDatei.inputStream().use { input -> input.copyTo(output) }
-            }
-
-            if (verbindung.responseCode in 200..299) {
-                "Backup erfolgreich in Google Drive hochgeladen!"
-            } else {
-                "Google Drive Fehler (Code ${verbindung.responseCode}). Lokales Backup wurde gespeichert."
-            }
+            verbindung.outputStream.use { out -> dbDatei.inputStream().use { it.copyTo(out) } }
+            "Cloud-Backup Status: ${verbindung.responseCode}"
         } catch (e: Exception) {
-            "Fehler beim Backup: ${e.localizedMessage ?: "Unbekannter Fehler"}"
+            FehlerLogHelfer.logFehler("Cloud-Backup", "Fehler beim Sichern", e)
+            "Fehler: ${e.localizedMessage}"
         }
     }
 
-    /**
-     * Stellt die Room-SQLite-Datenbank aus dem Backup wieder her.
-     */
     suspend fun datenbankWiederherstellen(context: Context): String = withContext(Dispatchers.IO) {
         try {
-            val dbDatei: File = context.getDatabasePath(DienstplanDatenbank.DATENBANK_NAME)
-            val lokalesBackup = File(context.filesDir, BACKUP_DATEINAME)
-
-            if (!GOOGLE_DRIVE_ACCESS_TOKEN.startsWith("HIER_")) {
-                // Download von Google Drive API v3 (sobald echte Keys hinterlegt sind)
-                val url = URL("https://www.googleapis.com/drive/v3/files/$BACKUP_DATEINAME?alt=media&key=$GOOGLE_DRIVE_API_KEY")
-                val verbindung = (url.openConnection() as HttpURLConnection).apply {
-                    requestMethod = "GET"
-                    setRequestProperty("Authorization", "Bearer $GOOGLE_DRIVE_ACCESS_TOKEN")
-                }
-                if (verbindung.responseCode in 200..299) {
-                    verbindung.inputStream.use { input ->
-                        dbDatei.outputStream().use { output -> input.copyTo(output) }
-                    }
-                    return@withContext "Datenbank aus Google Drive wiederhergestellt! Bitte App neu starten."
-                }
-            }
-
-            // Fallback auf das gespeicherte Backup
+            val dbDatei = context.getDatabasePath(DienstplanDatenbank.DATENBANK_NAME)
+            val lokalesBackup = File(context.getExternalFilesDir(null) ?: context.filesDir, BACKUP_DATEINAME)
             if (lokalesBackup.exists()) {
+                File(dbDatei.path + "-wal").delete()
+                File(dbDatei.path + "-shm").delete()
                 lokalesBackup.copyTo(dbDatei, overwrite = true)
-                "Backup erfolgreich wiederhergestellt!"
+                "Aus App-Ordner wiederhergestellt! Bitte App neu starten."
             } else {
-                "Kein Backup zum Wiederherstellen gefunden."
+                "Kein internes Backup gefunden."
             }
         } catch (e: Exception) {
-            "Fehler bei Wiederherstellung: ${e.localizedMessage ?: "Unbekannter Fehler"}"
+            FehlerLogHelfer.logFehler("Restore", "Wiederherstellung fehlgeschlagen", e)
+            "Fehler: ${e.localizedMessage}"
         }
     }
 }
