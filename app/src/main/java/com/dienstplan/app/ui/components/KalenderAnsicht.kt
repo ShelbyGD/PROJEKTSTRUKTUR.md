@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -33,10 +35,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.dienstplan.app.data.EintragEntity
 import com.dienstplan.app.util.NrwDatenHelfer
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.temporal.WeekFields
 import java.util.Locale
 
 @Composable
@@ -52,9 +56,21 @@ fun KlassischerMonatsKalender(
     val ersterWochentagOffset = monat.atDay(1).dayOfWeek.value - 1
     val zellen = List(ersterWochentagOffset) { null } + (1..monat.lengthOfMonth()).map { monat.atDay(it) }
     val wochenZeilen = zellen.chunked(7)
+    val wochenFeld = WeekFields.of(Locale.GERMAN).weekOfWeekBasedYear()
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        // Wochentags-Kopfzeile mit dezenter KW-Spalte
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "KW",
+                modifier = Modifier.width(26.dp),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.outline
+            )
             wochentage.forEach { tagName ->
                 Text(
                     text = tagName,
@@ -67,10 +83,28 @@ fun KlassischerMonatsKalender(
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-        // Vollbild-Kalenderraster (nutzt den freien Bildschirmplatz automatisch aus)
+        // Vollbild-Kalenderraster im Clean-Design
         Column(modifier = Modifier.weight(1f).fillMaxWidth()) {
             wochenZeilen.forEach { woche ->
+                val erstesDatumDerWoche = woche.filterNotNull().firstOrNull()
+                val kw = erstesDatumDerWoche?.get(wochenFeld)?.toString() ?: ""
+
                 Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    Box(
+                        modifier = Modifier
+                            .width(26.dp)
+                            .fillMaxHeight()
+                            .border(0.25.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                        contentAlignment = Alignment.TopCenter
+                    ) {
+                        Text(
+                            text = kw,
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+
                     for (i in 0 until 7) {
                         val datum = woche.getOrNull(i)
                         if (datum == null) {
@@ -93,7 +127,7 @@ fun KlassischerMonatsKalender(
                                         ausgewaehlterTag = datum
                                         onTagKlick(datum, tagesEintraege.firstOrNull())
                                     }
-                                    .padding(4.dp)
+                                    .padding(3.dp)
                             ) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -102,27 +136,50 @@ fun KlassischerMonatsKalender(
                                 ) {
                                     Text(
                                         text = datum.dayOfMonth.toString(),
-                                        style = MaterialTheme.typography.labelMedium,
+                                        style = MaterialTheme.typography.labelSmall,
                                         fontWeight = if (feiertag != null || istAusgewaehlt) FontWeight.Bold else FontWeight.Normal,
                                         color = if (feiertag != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                                     )
                                     if (ferien != null) {
                                         Box(
-                                            modifier = Modifier.size(6.dp).clip(CircleShape)
+                                            modifier = Modifier.size(5.dp).clip(CircleShape)
                                                 .background(MaterialTheme.colorScheme.tertiary)
                                         )
                                     }
                                 }
-                                tagesEintraege.take(3).forEach { eintrag ->
-                                    val farbe = farbenMap[eintrag.einsatzort]?.let { Color(it) }
-                                        ?: MaterialTheme.colorScheme.primary
-                                    Text(
-                                        text = eintrag.titel,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = farbe,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
+                                tagesEintraege.take(2).forEach { eintrag ->
+                                    val tagFarbe = when {
+                                        farbenMap.containsKey(eintrag.einsatzort) -> Color(farbenMap[eintrag.einsatzort]!!)
+                                        eintrag.typ == "FREI" -> MaterialTheme.colorScheme.secondary
+                                        eintrag.typ == "TERMIN" -> MaterialTheme.colorScheme.tertiary
+                                        else -> MaterialTheme.colorScheme.primary
+                                    }
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 2.dp)
+                                            .background(tagFarbe.copy(alpha = 0.22f), RoundedCornerShape(3.dp))
+                                            .padding(horizontal = 3.dp, vertical = 1.dp)
+                                    ) {
+                                        Text(
+                                            text = eintrag.titel,
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = tagFarbe,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            lineHeight = 10.sp
+                                        )
+                                        if (eintrag.typ == "SCHICHT") {
+                                            Text(
+                                                text = "${eintrag.startZeit}-${eintrag.endZeit}",
+                                                fontSize = 8.sp,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                                lineHeight = 9.sp
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -131,9 +188,9 @@ fun KlassischerMonatsKalender(
             }
         }
 
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant, thickness = 1.dp)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-        // Kompakte Tages-Detailleiste am unteren Bildschirmrand
+        // Kompakte Detailansicht unten
         val ausgewaehlteEintraege = eintraege.filter { it.datum == ausgewaehlterTag.toString() }
         val tagFeiertag = if (nrwAktiv) NrwDatenHelfer.holeFeiertagNrw(ausgewaehlterTag) else null
         val tagFerien = if (nrwAktiv) NrwDatenHelfer.holeSchulferienNrw(ausgewaehlterTag) else null
@@ -141,9 +198,9 @@ fun KlassischerMonatsKalender(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 110.dp, max = 170.dp)
+                .heightIn(min = 96.dp, max = 150.dp)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(horizontal = 16.dp, vertical = 6.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -151,13 +208,11 @@ fun KlassischerMonatsKalender(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Details am ${ausgewaehlterTag.dayOfMonth}.${ausgewaehlterTag.monthValue}.${ausgewaehlterTag.year}",
+                    text = "Am ${ausgewaehlterTag.dayOfMonth}.${ausgewaehlterTag.monthValue}.${ausgewaehlterTag.year}",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold
                 )
-                TextButton(onClick = { onTagKlick(ausgewaehlterTag, null) }) {
-                    Text("+ Eintrag")
-                }
+                TextButton(onClick = { onTagKlick(ausgewaehlterTag, null) }) { Text("+ Eintrag") }
             }
             if (tagFeiertag != null || tagFerien != null) {
                 Text(
@@ -166,31 +221,19 @@ fun KlassischerMonatsKalender(
                     color = MaterialTheme.colorScheme.tertiary
                 )
             }
-            if (ausgewaehlteEintraege.isEmpty()) {
-                Text(
-                    text = "Keine Einträge. Tippe auf '+ Eintrag' oder einen Kalendertag.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            } else {
-                ausgewaehlteEintraege.forEach { eintrag ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable { onTagKlick(ausgewaehlterTag, eintrag) }.padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = "${eintrag.titel} ${if (eintrag.einsatzort.isNotBlank()) "(${eintrag.einsatzort})" else ""}",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = if (eintrag.typ == "SCHICHT") {
-                                String.format(Locale.GERMAN, "%s-%s • %.2f €", eintrag.startZeit, eintrag.endZeit, eintrag.berechneVerdienst())
-                            } else eintrag.typ,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
+            ausgewaehlteEintraege.forEach { eintrag ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable { onTagKlick(ausgewaehlterTag, eintrag) }.padding(vertical = 3.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = eintrag.titel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                    Text(
+                        text = if (eintrag.typ == "SCHICHT") {
+                            String.format(Locale.GERMAN, "%s-%s (%.1f Std. • %.2f €)", eintrag.startZeit, eintrag.endZeit, eintrag.berechneNettoStunden(), eintrag.berechneVerdienst())
+                        } else eintrag.typ,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         }
