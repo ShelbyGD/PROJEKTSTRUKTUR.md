@@ -44,12 +44,13 @@ fun MonatsUndGehaltsLeiste(
     monatsEintraege: List<EintragEntity>,
     onMonatWechsel: (Long) -> Unit
 ) {
+    val anzahlSchichten = monatsEintraege.count { it.typ == "SCHICHT" }
     val gesamtStunden = monatsEintraege.sumOf { it.berechneNettoStunden() }
     val gesamtVerdienst = monatsEintraege.sumOf { it.berechneVerdienst() }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -65,19 +66,25 @@ fun MonatsUndGehaltsLeiste(
                 Icon(Icons.Default.ChevronRight, contentDescription = "Nächster Monat")
             }
         }
-        // Flache Gehaltsrechner-Zeile (Netto-Arbeitszeit & Monatsverdienst)
+        // Clean-Übersichtsleiste: Schichten | Netto-Zeit | Gehalt
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = String.format(Locale.GERMAN, "Netto-Zeit: %.2f Std.", gesamtStunden),
-                style = MaterialTheme.typography.bodyMedium,
+                text = "Schichten: $anzahlSchichten",
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
+                text = String.format(Locale.GERMAN, "Ist-Zeit: %.2f Std.", gesamtStunden),
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
                 text = String.format(Locale.GERMAN, "Gehalt: %.2f €", gesamtVerdienst),
-                style = MaterialTheme.typography.bodyMedium,
+                style = MaterialTheme.typography.bodySmall,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -98,8 +105,7 @@ fun FlacheListenAnsicht(
 
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         items(tageImMonat) { datum ->
-            val datumStr = datum.toString()
-            val tagesEintraege = eintraege.filter { it.datum == datumStr }
+            val tagesEintraege = eintraege.filter { it.datum == datum.toString() }
             val feiertag = if (nrwAktiv) NrwDatenHelfer.holeFeiertagNrw(datum) else null
             val ferien = if (nrwAktiv) NrwDatenHelfer.holeSchulferienNrw(datum) else null
 
@@ -137,18 +143,16 @@ fun FlacheListenAnsicht(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier.size(10.dp).clip(CircleShape).background(ortFarbe)
-                            )
+                            Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(ortFarbe))
                             Text(
-                                text = "  ${eintrag.titel}" + if (eintrag.einsatzort.isNotBlank()) " (${eintrag.einsatzort})" else "",
+                                text = "  ${eintrag.titel}",
                                 style = MaterialTheme.typography.bodyLarge,
                                 fontWeight = FontWeight.Medium
                             )
                         }
                         Text(
                             text = if (eintrag.typ == "SCHICHT") {
-                                String.format(Locale.GERMAN, "%s-%s (%.2f €)", eintrag.startZeit, eintrag.endZeit, eintrag.berechneVerdienst())
+                                String.format(Locale.GERMAN, "%s-%s • %.1f Std. (%.2f €)", eintrag.startZeit, eintrag.endZeit, eintrag.berechneNettoStunden(), eintrag.berechneVerdienst())
                             } else eintrag.typ,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
