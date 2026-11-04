@@ -6,73 +6,99 @@ import com.dienstplan.app.data.EintragEntity
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.text.PDFTextStripper
-import java.io.InputStream
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 
 object PdfImportHelfer {
 
-    /**
-     * Initialisiert PDFBox (muss einmalig aufgerufen werden).
-     */
-    fun initialisieren(context: Context) {
+    private fun initialisieren(context: Context) {
         try {
-            PDFBoxResourceLoader.init(context)
+            if (!PDFBoxResourceLoader.isInit()) {
+                PDFBoxResourceLoader.init(context.applicationContext)
+            }
         } catch (e: Exception) {
-            e.printStackTrace()
+            FehlerLogHelfer.logFehler("PDF-Init", "PDFBox konnte nicht initialisiert werden", e)
         }
     }
 
     /**
-     * Liest eine PDF-Datei von einer URI ein und extrahiert Schichten.
+     * Liest eine PDF-Datei asynchron ein und protokolliert das Ergebnis im FehlerLogHelfer.
      */
-    fun pdfEinlesen(context: Context, uri: Uri): List<EintragEntity> {
-        initialisieren(context)
-        val eintraege = mutableListOf<EintragEntity>()
+    suspend fun pdfEinlesen(context: Context, uri: Uri, standardMonat: String): List<EintragEntity> =
+        withContext(Dispatchers.IO) {
+            initialisieren(context)
+            val eintraege = mutableListOf<EintragEntity>()
 
-        try {
-            val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
-            inputStream?.use { stream ->
-                val dokument = PDDocument.load(stream)
-                val stripper = PDFTextStripper()
-                val text = stripper.getText(dokument)
-                dokument.close()
+            try {
+                val stream = context.contentResolver.openInputStream(uri)
+                if (stream == null) {
+                    FehlerLogHelfer.logFehler("PDF-Import", "Datei-Stream konnte nicht geöffnet werden: $uri")
+                    return@withContext emptyList()
+                }
 
-                // Einfacher Parser: Durchsucht Zeilen nach Mustern wie "01.11.2026" und Uhrzeiten
-                val zeilen = text.split("\n")
-                val datumRegex = Regex("""(\d{2})\.(\d{2})\.(\d{4})""")
-                val zeitRegex = Regex("""(\d{2}:\d{2})\s*[-–]\s*(\d{2}:\d{2})""")
-
-                var aktuellesDatum = LocalDate.now().toString()
-
-                for (zeile in zeilen) {
-                    val datumMatch = datumRegex.find(zeile)
-                    if (datumMatch != null) {
-                        val (tag, monat, jahr) = datumMatch.destructured
-                        aktuellesDatum = "$jahr-$monat-$tag"
-                    }
-
-                    val zeitMatch = zeitRegex.find(zeile)
-                    if (zeitMatch != null) {
-                        val (start, ende) = zeitMatch.destructured
-                        eintraege.add(
-                            EintragEntity(
-                                datum = aktuellesDatum,
-                                typ = "SCHICHT",
-                                titel = "Importierte Schicht",
-                                startZeit = start,
-                                endZeit = ende,
-                                pauseMinuten = 30,
-                                stundenlohn = 15.0,
-                                einsatzort = "PDF-Import"
-                            )
-                        )
+                val text = stream.use { input ->
+                    PDDocument.load(input).use { dokument ->
+                        PDFTextStripper().getText(dokument)
                     }
                 }
+
+                val vorschau = text.trim().take(500).ifBlank { "(Kein Text im PDF gefunden – evtl. reines Bild-PDF)" }
+                FehlerLogHelfer.logInfo("PDF-Rohtext", "Länge: ${text.length} Zeichen.\nVorschau:\n$vorschau")
+
+                eintraege.addAll(textZuEintraegen(text, standardMonat, "PDF-Import"))
+                FehlerLogHelfer.logInfo("PDF-Ergebnis", "${eintraege.size} Schicht(en) erfolgreich erkannt.")
+            } catch (e: Exception) {
+                FehlerLogHelfer.logFehler("PDF-Import", "Absturz beim Lesen der PDF-Datei", e)
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
+
+            eintraege
         }
 
-        return eintraege
+    /**
+     * Gemeinsamer, flexibler Text-Parser für PDF und Kamera-Scan.
+     * Erkennt u.a. 03.11.2026, 3.11.26, 03.11. sowie Uhrzeiten wie 08:00-16:30 oder 8.00 - 16.30.
+     */
+    fun textZuEintraegen(volltext: String, standardMonat: String, quelle: String): List<EintragEntity> {
+        val liste = mutableListOf<EintragEntity>()
+        val vollDatumRegex = Regex("""(\d{1,2})\.(\d{1,2})\.(\d{2,4})""")
+        val kurzDatumRegex = Regex("""(\d{1,2})\.(\d{1,2})\.""")
+        val zeitRegex = Regex("""(\d{1,2})[:.](\d{2})\s*[-–bis]+\s*(\d{1,2})[:.](\d{2})""")
+
+        var aktuellesDatum = "$standardMonat-01"
+        val standardJahr = standardMonat.substringBefore("-")
+
+        for (zeile in volltext.lines()) {
+            vollDatumRegex.find(zeile)?.let { m ->
+                val tag = m.groupValues[1].padStart(2, '0')
+                val monat = m.groupValues[2].padStart(2, '0')
+                val jahrRoh = m.groupValues[3]
+                val jahr = if (jahrRoh.length == 2) "20$jahrRoh" else jahrRoh
+                aktuellesDatum = "$jahr-$monat-$tag"
+            } ?: kurzDatumRegex.find(zeile)?.let { m ->
+                val tag = m.groupValues[1].padStart(2, '0')
+                val monat = m.groupValues[2].padStart(2, '0')
+                aktuellesDatum = "$standardJahr-$monat-$tag"
+            }
+
+            zeitRegex.find(zeile)?.let { m ->
+                val start = "${m.groupValues[1].padStart(2, '0')}:${m.groupValues[2]}"
+                val ende = "${m.groupValues[3].padStart(2, '0')}:${m.groupValues[4]}"
+                val rest = zeile.substringAfter(m.value).trim().take(25)
+                liste.add(
+                    EintragEntity(
+                        datum = aktuellesDatum,
+                        typ = "SCHICHT",
+                        titel = if (quelle == "PDF-Import") "PDF-Schicht" else "Scan-Schicht",
+                        startZeit = start,
+                        endZeit = ende,
+                        pauseMinuten = 30,
+                        stundenlohn = 15.0,
+                        einsatzort = rest.ifBlank { quelle }
+                    )
+                )
+            }
+        }
+        return liste
     }
 }
