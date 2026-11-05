@@ -1,4 +1,3 @@
-```kotlin
 package com.dienstplan.app
 
 import android.os.Bundle
@@ -188,7 +187,6 @@ fun DienstplanHauptbildschirm(viewModel: DienstplanViewModel = viewModel()) {
                             Text("Dienstplan", style = MaterialTheme.typography.titleLarge)
                         },
                         actions = {
-                            // Aufgeräumte Top-Bar: Nur noch die Schnellsuche oben rechts
                             IconButton(onClick = { zeigeSucheDialog = true }) {
                                 Icon(Icons.Default.Search, contentDescription = "Im Kalender suchen")
                             }
@@ -225,7 +223,6 @@ fun DienstplanHauptbildschirm(viewModel: DienstplanViewModel = viewModel()) {
         }
     }
 
-    // Dialog zum Anlegen / Bearbeiten / Blättern (<< Datum >>)
     if (dialogDatum != null) {
         EintragDialog(
             initialDatum = dialogDatum!!,
@@ -243,7 +240,6 @@ fun DienstplanHauptbildschirm(viewModel: DienstplanViewModel = viewModel()) {
         )
     }
 
-    // Dialog: Im Kalender suchen (wie in FlexR Screenshot 2 & 3)
     if (zeigeSucheDialog) {
         KalenderSucheDialog(
             alleEintraege = alleEintraege,
@@ -259,7 +255,6 @@ fun DienstplanHauptbildschirm(viewModel: DienstplanViewModel = viewModel()) {
         )
     }
 
-    // Dialog: Monatseinträge gezielt löschen (wie in FlexR Screenshot 3 "Löschen")
     if (zeigeMonatLeerenDialog) {
         AlertDialog(
             onDismissRequest = { zeigeMonatLeerenDialog = false },
@@ -420,4 +415,3 @@ private fun KalenderSucheDialog(
         }
     )
 }
-```
