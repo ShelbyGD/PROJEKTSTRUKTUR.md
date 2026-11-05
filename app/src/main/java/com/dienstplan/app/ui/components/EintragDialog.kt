@@ -1,15 +1,10 @@
-```kotlin
 package com.dienstplan.app.ui.components
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -46,9 +41,6 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/**
- * Hilfsklasse für die 1-Klick-Schnellvorlagen (inspiriert von FlexR "Schichten").
- */
 private data class SchichtVorlage(
     val name: String,
     val typ: String,
@@ -77,7 +69,6 @@ fun EintragDialog(
     var lohnText by remember { mutableStateOf((bestehenderEintrag?.stundenlohn ?: 15.0).toString()) }
     var einsatzort by remember { mutableStateOf(bestehenderEintrag?.einsatzort ?: "") }
 
-    // Automatisch gelernte Schicht-Vorlagen aus bisherigen Einsätzen + feste Schnellvorlagen
     val gelernteSchichtVorlagen = remember(alleEintraege) {
         val ausHistorie = alleEintraege
             .filter { it.typ == "SCHICHT" && it.titel.isNotBlank() }
@@ -105,7 +96,6 @@ fun EintragDialog(
         ausHistorie + standardVorlagen
     }
 
-    // Hilfsfunktion zum Vor- und Zurückblättern des Datums (<< Datum >>)
     fun datumAendern(tageOffset: Long) {
         runCatching {
             val geparst = LocalDate.parse(datum.trim())
@@ -150,7 +140,6 @@ fun EintragDialog(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                // 1. Datums-Umschalter mit << und >> (wie in FlexR Screenshot 5)
                 Surface(
                     shape = RoundedCornerShape(10.dp),
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
@@ -178,7 +167,6 @@ fun EintragDialog(
                     }
                 }
 
-                // 2. 1-Klick-Schnellauswahl / Vorlagen (wie in FlexR Screenshot 2)
                 Text(
                     text = "Schnellauswahl (1-Klick-Vorlagen):",
                     style = MaterialTheme.typography.labelMedium,
@@ -209,7 +197,6 @@ fun EintragDialog(
 
                 HorizontalDivider()
 
-                // 3. Typ-Auswahl: Schicht, Frei oder Termin
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -235,12 +222,10 @@ fun EintragDialog(
                     }
                 }
 
-                // 4. Bezeichnung / Markt / Titel
                 OutlinedTextField(
                     value = titel,
                     onValueChange = {
                         titel = it
-                        // Falls Einsatzort noch leer ist, synchronisieren wir ihn bei Schichten komfortabel mit
                         if (typ == "SCHICHT" && einsatzort.isBlank()) {
                             einsatzort = it
                         }
@@ -258,7 +243,6 @@ fun EintragDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                // 5. Uhrzeiten & Details je nach Typ
                 if (typ == "SCHICHT") {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
@@ -326,7 +310,6 @@ fun EintragDialog(
                         modifier = Modifier.fillMaxWidth()
                     )
                 } else {
-                    // Bei "FREI" optionales Notizfeld
                     OutlinedTextField(
                         value = einsatzort,
                         onValueChange = { einsatzort = it },
