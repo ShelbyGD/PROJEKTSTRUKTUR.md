@@ -1,4 +1,3 @@
-```kotlin
 package com.dienstplan.app.ui.components
 
 import androidx.compose.foundation.layout.Column
@@ -57,7 +56,6 @@ fun HamburgerMenuInhalt(
             )
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            // 1. Ansicht & Suche (aufgeräumt und direkt erreichbar)
             Text(
                 text = "Ansicht & Suche",
                 style = MaterialTheme.typography.labelMedium,
@@ -89,7 +87,6 @@ fun HamburgerMenuInhalt(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            // 2. Dienstplan & Verwaltung
             Text(
                 text = "Dienstplan & Verwaltung",
                 style = MaterialTheme.typography.labelMedium,
@@ -123,7 +120,6 @@ fun HamburgerMenuInhalt(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
-            // 3. Backup & Diagnose
             Text(
                 text = "Sichern & Diagnose",
                 style = MaterialTheme.typography.labelMedium,
@@ -152,4 +148,3 @@ fun HamburgerMenuInhalt(
         }
     }
 }
-```
