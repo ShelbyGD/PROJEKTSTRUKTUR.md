@@ -1,4 +1,3 @@
-```kotlin
 package com.dienstplan.app.ui.components
 
 import androidx.compose.foundation.background
@@ -69,7 +68,6 @@ fun KlassischerMonatsKalender(
     val wochenFeld = WeekFields.of(Locale.GERMAN).weekOfWeekBasedYear()
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // Wochentags-Kopfzeile mit dezenter KW-Spalte
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -95,7 +93,6 @@ fun KlassischerMonatsKalender(
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-        // Vollbild-Kalenderraster im Clean-Design
         Column(modifier = Modifier.weight(1f).fillMaxWidth()) {
             wochenZeilen.forEach { woche ->
                 val erstesDatumDerWoche = woche.filterNotNull().firstOrNull()
@@ -137,8 +134,6 @@ fun KlassischerMonatsKalender(
                                         color = if (istAusgewaehlt) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
                                     )
                                     .clickable {
-                                        // 1. Tipp: Tag unten in der Leiste anzeigen.
-                                        // 2. Tipp auf denselben Tag: Direkt Bearbeiten/Neu-Dialog öffnen!
                                         if (ausgewaehlterTag == datum) {
                                             onTagKlick(datum, tagesEintraege.firstOrNull())
                                         } else {
@@ -215,7 +210,6 @@ fun KlassischerMonatsKalender(
 
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-        // Kompakte Tages-Detailansicht unten mit Direkt-Bearbeiten (✏️) und Direkt-Löschen (🗑️)
         val ausgewaehlteEintraege = eintraege.filter { it.datum == ausgewaehlterTag.toString() }
         val tagFeiertag = if (nrwAktiv) NrwDatenHelfer.holeFeiertagNrw(ausgewaehlterTag) else null
         val tagFerien = if (nrwAktiv) NrwDatenHelfer.holeSchulferienNrw(ausgewaehlterTag) else null
@@ -296,7 +290,6 @@ fun KlassischerMonatsKalender(
                         )
                     }
 
-                    // Direkt-Buttons wie in der Vorbild-App: Stift (Bearbeiten) & Mülleimer (1-Klick-Löschen)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(
                             onClick = { onTagKlick(ausgewaehlterTag, eintrag) },
@@ -328,4 +321,3 @@ fun KlassischerMonatsKalender(
         }
     }
 }
-```
