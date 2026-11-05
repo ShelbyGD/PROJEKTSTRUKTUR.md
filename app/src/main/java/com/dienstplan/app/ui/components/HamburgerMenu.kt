@@ -68,8 +68,7 @@ fun HamburgerMenuInhalt(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
             HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
-
-            // 1. Ansicht, Suche & Foto-Galerie
+// --- START TEIL 2 (HamburgerMenu.kt) ---
             Text(
                 text = "Ansicht, Suche & Fotos",
                 style = MaterialTheme.typography.labelMedium,
@@ -78,17 +77,11 @@ fun HamburgerMenuInhalt(
             )
             NavigationDrawerItem(
                 label = {
-                    Text(
-                        if (istKalenderAnsicht) "Zur Listenansicht wechseln"
-                        else "Zur Kalenderansicht wechseln"
-                    )
+                    Text(if (istKalenderAnsicht) "Zur Listenansicht wechseln" else "Zur Kalenderansicht wechseln")
                 },
                 selected = false,
                 icon = {
-                    Icon(
-                        if (istKalenderAnsicht) Icons.Default.ViewList else Icons.Default.CalendarMonth,
-                        contentDescription = null
-                    )
+                    Icon(if (istKalenderAnsicht) Icons.Default.ViewList else Icons.Default.CalendarMonth, contentDescription = null)
                 },
                 onClick = onAnsichtWechseln
             )
@@ -107,7 +100,6 @@ fun HamburgerMenuInhalt(
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
 
-            // 2. Lohn, Fahrtkosten & Standorte
             Text(
                 text = "Gehalt, Fahrtkosten & Orte",
                 style = MaterialTheme.typography.labelMedium,
@@ -132,10 +124,9 @@ fun HamburgerMenuInhalt(
                 icon = { Icon(Icons.Default.Palette, contentDescription = null) },
                 onClick = onEinstellungenOeffnen
             )
-
+// --- START TEIL 3 (HamburgerMenu.kt) ---
             HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
 
-            // 3. Dienstplan-Import & Aufräumen
             Text(
                 text = "Dienstplan & Aufräumen",
                 style = MaterialTheme.typography.labelMedium,
@@ -151,19 +142,12 @@ fun HamburgerMenuInhalt(
             NavigationDrawerItem(
                 label = { Text("Monat leeren ($aktuellerMonatName)") },
                 selected = false,
-                icon = {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error
-                    )
-                },
+                icon = { Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error) },
                 onClick = onMonatLeeren
             )
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
 
-            // 4. Backup & Diagnose
             Text(
                 text = "Sichern & Diagnose",
                 style = MaterialTheme.typography.labelMedium,
