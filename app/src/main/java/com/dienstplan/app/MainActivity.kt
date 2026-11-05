@@ -80,9 +80,11 @@ import com.dienstplan.app.util.PdfImportHelfer
 import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
-import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+private fun DienstplanViewModel.monatWechseln(offset: Int) { this.monatWechseln(offset.toLong()) }
+private fun DienstplanViewModel.monatWechseln(offset: Long) { this.monatWechseln(offset.toInt()) }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -149,7 +151,8 @@ fun DienstplanHauptbildschirm(viewModel: DienstplanViewModel = viewModel()) {
             }
         }
     }
-        val fotosOrdner = remember {
+// --- START TEIL 2 (MainActivity.kt) ---
+    val fotosOrdner = remember {
         File(context.filesDir, "tages_fotos").apply { if (!exists()) mkdirs() }
     }
 
@@ -279,9 +282,7 @@ fun DienstplanHauptbildschirm(viewModel: DienstplanViewModel = viewModel()) {
                         standortKmMap = standortKmMap,
                         kmPauschale = kmPauschale,
                         hinUndRueckfahrt = hinUndRueckfahrt,
-                        onMonatWechseln = { offset ->
-                            if (offset < 0) viewModel.monatWechseln(-1) else viewModel.monatWechseln(1)
-                        },
+                        onMonatWechseln = { offset -> viewModel.monatWechseln(offset) },
                         onFotoAnsehen = { groesstesFoto = it },
                         onTagKlick = { d, e ->
                             bearbeiteterEintrag = e
@@ -298,7 +299,8 @@ fun DienstplanHauptbildschirm(viewModel: DienstplanViewModel = viewModel()) {
             }
         }
     }
-        if (dialogDatum != null) {
+// --- START TEIL 3 (MainActivity.kt) ---
+    if (dialogDatum != null) {
         val dStr = dialogDatum!!
         EintragDialog(
             initialDatum = dStr,
