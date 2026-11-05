@@ -23,7 +23,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.HorizontalDivider
@@ -86,9 +85,7 @@ fun KlassischerMonatsKalender(
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 6.dp),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
@@ -109,8 +106,7 @@ fun KlassischerMonatsKalender(
             }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-        // Kalenderraster mit Links-/Rechts-Swipe zum Monatswechsel
+// --- START TEIL 2 (KalenderAnsicht.kt) ---
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -124,11 +120,8 @@ fun KlassischerMonatsKalender(
                             gesamtWischWeg += dragAmount
                         },
                         onDragEnd = {
-                            if (gesamtWischWeg > 95f) {
-                                onMonatWechseln(-1)
-                            } else if (gesamtWischWeg < -95f) {
-                                onMonatWechseln(1)
-                            }
+                            if (gesamtWischWeg > 95f) onMonatWechseln(-1L)
+                            else if (gesamtWischWeg < -95f) onMonatWechseln(1L)
                         }
                     )
                 }
@@ -145,12 +138,7 @@ fun KlassischerMonatsKalender(
                             .border(0.25.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
                         contentAlignment = Alignment.TopCenter
                     ) {
-                        Text(
-                            text = kw,
-                            fontSize = 10.sp,
-                            color = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
+                        Text(text = kw, fontSize = 10.sp, color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(top = 4.dp))
                     }
 
                     for (i in 0 until 7) {
@@ -176,11 +164,8 @@ fun KlassischerMonatsKalender(
                                         color = if (istAusgewaehlt) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
                                     )
                                     .clickable {
-                                        if (ausgewaehlterTag == datum) {
-                                            onTagKlick(datum, tagesEintraege.firstOrNull())
-                                        } else {
-                                            ausgewaehlterTag = datum
-                                        }
+                                        if (ausgewaehlterTag == datum) onTagKlick(datum, tagesEintraege.firstOrNull())
+                                        else ausgewaehlterTag = datum
                                     }
                                     .padding(3.dp)
                             ) {
@@ -199,34 +184,10 @@ fun KlassischerMonatsKalender(
                                             else -> MaterialTheme.colorScheme.onSurface
                                         }
                                     )
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(2.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        if (hatNotiz) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(5.dp)
-                                                    .clip(CircleShape)
-                                                    .background(Color(0xFFFBC02D))
-                                            )
-                                        }
-                                        if (hatFotos) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(5.dp)
-                                                    .clip(CircleShape)
-                                                    .background(MaterialTheme.colorScheme.primary)
-                                            )
-                                        }
-                                        if (ferien != null) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(5.dp)
-                                                    .clip(CircleShape)
-                                                    .background(MaterialTheme.colorScheme.tertiary)
-                                            )
-                                        }
+                                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        if (hatNotiz) Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(Color(0xFFFBC02D)))
+                                        if (hatFotos) Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
+                                        if (ferien != null) Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(MaterialTheme.colorScheme.tertiary))
                                     }
                                 }
                                 tagesEintraege.take(2).forEach { eintrag ->
@@ -270,10 +231,8 @@ fun KlassischerMonatsKalender(
                 }
             }
         }
-
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-        // Kompakte Tages-Detailansicht unten (inkl. Direkt-Bearbeiten, Direkt-Löschen, Notiz, Fotos & Fahrtkosten)
+// --- START TEIL 3 (KalenderAnsicht.kt) ---
         val tagKey = ausgewaehlterTag.toString()
         val ausgewaehlteEintraege = eintraege.filter { it.datum == tagKey }
         val tagesNotiz = notizenMap[tagKey].orEmpty()
@@ -331,10 +290,7 @@ fun KlassischerMonatsKalender(
 
             if (tagesFotos.isNotEmpty()) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 3.dp)
-                        .horizontalScroll(rememberScrollState()),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp).horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -360,7 +316,7 @@ fun KlassischerMonatsKalender(
 
             if (ausgewaehlteEintraege.isEmpty() && tagesNotiz.isBlank() && tagesFotos.isEmpty()) {
                 Text(
-                    text = "Kein Eintrag vorhanden (Tippe auf '+ Eintrag / Foto' oder doppelt auf den Tag)",
+                    text = "Kein Eintrag (Tippe auf '+ Eintrag / Foto' oder 2x auf den Tag)",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.outline,
                     modifier = Modifier.padding(top = 4.dp)
@@ -374,10 +330,7 @@ fun KlassischerMonatsKalender(
                 val fahrtkosten = gesamtKm * kmPauschale
 
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { onTagKlick(ausgewaehlterTag, eintrag) }
-                        .padding(vertical = 2.dp),
+                    modifier = Modifier.fillMaxWidth().clickable { onTagKlick(ausgewaehlterTag, eintrag) }.padding(vertical = 2.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -406,36 +359,16 @@ fun KlassischerMonatsKalender(
                             String.format(Locale.GERMAN, " • %.0f km (%.2f €)", gesamtKm, fahrtkosten)
                         } else ""
 
-                        Text(
-                            text = basisInfo + kmInfo,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        Text(text = basisInfo + kmInfo, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(
-                            onClick = { onTagKlick(ausgewaehlterTag, eintrag) },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Edit,
-                                contentDescription = "Bearbeiten",
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(18.dp)
-                            )
+                        IconButton(onClick = { onTagKlick(ausgewaehlterTag, eintrag) }, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Default.Edit, contentDescription = "Bearbeiten", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                         }
                         if (onEintragDirektLoeschen != null) {
-                            IconButton(
-                                onClick = { onEintragDirektLoeschen(eintrag) },
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "Sofort löschen",
-                                    tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(18.dp)
-                                )
+                            IconButton(onClick = { onEintragDirektLoeschen(eintrag) }, modifier = Modifier.size(32.dp)) {
+                                Icon(Icons.Default.Delete, contentDescription = "Löschen", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
                             }
                         }
                     }
