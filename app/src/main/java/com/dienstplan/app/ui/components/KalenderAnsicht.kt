@@ -1,8 +1,12 @@
 package com.dienstplan.app.ui.components
 
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,12 +23,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -36,6 +42,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -43,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dienstplan.app.data.EintragEntity
 import com.dienstplan.app.util.NrwDatenHelfer
+import java.io.File
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.temporal.WeekFields
@@ -54,6 +64,13 @@ fun KlassischerMonatsKalender(
     eintraege: List<EintragEntity>,
     farbenMap: Map<String, Long>,
     nrwAktiv: Boolean,
+    notizenMap: Map<String, String> = emptyMap(),
+    fotosProTagMap: Map<String, List<File>> = emptyMap(),
+    standortKmMap: Map<String, Double> = emptyMap(),
+    kmPauschale: Double = 0.30,
+    hinUndRueckfahrt: Boolean = true,
+    onMonatWechseln: (Long) -> Unit = {},
+    onFotoAnsehen: (File) -> Unit = {},
     onTagKlick: (LocalDate, EintragEntity?) -> Unit,
     onEintragDirektLoeschen: ((EintragEntity) -> Unit)? = null
 ) {
@@ -93,7 +110,29 @@ fun KlassischerMonatsKalender(
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-        Column(modifier = Modifier.weight(1f).fillMaxWidth()) {
+        // Kalenderraster mit Links-/Rechts-Swipe zum Monatswechsel
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .pointerInput(monat) {
+                    var gesamtWischWeg = 0f
+                    detectHorizontalDragGestures(
+                        onDragStart = { gesamtWischWeg = 0f },
+                        onHorizontalDrag = { change, dragAmount ->
+                            change.consume()
+                            gesamtWischWeg += dragAmount
+                        },
+                        onDragEnd = {
+                            if (gesamtWischWeg > 95f) {
+                                onMonatWechseln(-1)
+                            } else if (gesamtWischWeg < -95f) {
+                                onMonatWechseln(1)
+                            }
+                        }
+                    )
+                }
+        ) {
             wochenZeilen.forEach { woche ->
                 val erstesDatumDerWoche = woche.filterNotNull().firstOrNull()
                 val kw = erstesDatumDerWoche?.get(wochenFeld)?.toString() ?: ""
@@ -119,7 +158,10 @@ fun KlassischerMonatsKalender(
                         if (datum == null) {
                             Box(modifier = Modifier.weight(1f).fillMaxHeight())
                         } else {
-                            val tagesEintraege = eintraege.filter { it.datum == datum.toString() }
+                            val datumKey = datum.toString()
+                            val tagesEintraege = eintraege.filter { it.datum == datumKey }
+                            val hatNotiz = !notizenMap[datumKey].isNullOrBlank()
+                            val hatFotos = !fotosProTagMap[datumKey].isNullOrEmpty()
                             val feiertag = if (nrwAktiv) NrwDatenHelfer.holeFeiertagNrw(datum) else null
                             val ferien = if (nrwAktiv) NrwDatenHelfer.holeSchulferienNrw(datum) else null
                             val istAusgewaehlt = datum == ausgewaehlterTag
@@ -157,13 +199,34 @@ fun KlassischerMonatsKalender(
                                             else -> MaterialTheme.colorScheme.onSurface
                                         }
                                     )
-                                    if (ferien != null) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(5.dp)
-                                                .clip(CircleShape)
-                                                .background(MaterialTheme.colorScheme.tertiary)
-                                        )
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        if (hatNotiz) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(5.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color(0xFFFBC02D))
+                                            )
+                                        }
+                                        if (hatFotos) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(5.dp)
+                                                    .clip(CircleShape)
+                                                    .background(MaterialTheme.colorScheme.primary)
+                                            )
+                                        }
+                                        if (ferien != null) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(5.dp)
+                                                    .clip(CircleShape)
+                                                    .background(MaterialTheme.colorScheme.tertiary)
+                                            )
+                                        }
                                     }
                                 }
                                 tagesEintraege.take(2).forEach { eintrag ->
@@ -210,14 +273,18 @@ fun KlassischerMonatsKalender(
 
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-        val ausgewaehlteEintraege = eintraege.filter { it.datum == ausgewaehlterTag.toString() }
+        // Kompakte Tages-Detailansicht unten (inkl. Direkt-Bearbeiten, Direkt-Löschen, Notiz, Fotos & Fahrtkosten)
+        val tagKey = ausgewaehlterTag.toString()
+        val ausgewaehlteEintraege = eintraege.filter { it.datum == tagKey }
+        val tagesNotiz = notizenMap[tagKey].orEmpty()
+        val tagesFotos = fotosProTagMap[tagKey].orEmpty()
         val tagFeiertag = if (nrwAktiv) NrwDatenHelfer.holeFeiertagNrw(ausgewaehlterTag) else null
         val tagFerien = if (nrwAktiv) NrwDatenHelfer.holeSchulferienNrw(ausgewaehlterTag) else null
 
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 104.dp, max = 165.dp)
+                .heightIn(min = 108.dp, max = 180.dp)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 6.dp)
         ) {
@@ -241,13 +308,59 @@ fun KlassischerMonatsKalender(
                     }
                 }
                 TextButton(onClick = { onTagKlick(ausgewaehlterTag, null) }) {
-                    Text("+ Eintrag", fontWeight = FontWeight.Bold)
+                    Text("+ Eintrag / Foto", fontWeight = FontWeight.Bold)
                 }
             }
 
-            if (ausgewaehlteEintraege.isEmpty()) {
+            if (tagesNotiz.isNotBlank()) {
+                Surface(
+                    color = Color(0xFFFFF59D).copy(alpha = 0.25f),
+                    shape = RoundedCornerShape(6.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 3.dp)
+                        .clickable { onTagKlick(ausgewaehlterTag, ausgewaehlteEintraege.firstOrNull()) }
+                ) {
+                    Text(
+                        text = "Notiz: $tagesNotiz",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            if (tagesFotos.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 3.dp)
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    tagesFotos.forEach { fotoFile ->
+                        val bmp = remember(fotoFile.absolutePath) {
+                            runCatching { BitmapFactory.decodeFile(fotoFile.absolutePath) }.getOrNull()
+                        }
+                        if (bmp != null) {
+                            Image(
+                                bitmap = bmp.asImageBitmap(),
+                                contentDescription = "Tagesfoto",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
+                                    .clickable { onFotoAnsehen(fotoFile) }
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (ausgewaehlteEintraege.isEmpty() && tagesNotiz.isBlank() && tagesFotos.isEmpty()) {
                 Text(
-                    text = "Kein Eintrag vorhanden (Tippe auf '+ Eintrag' oder doppelt auf den Tag)",
+                    text = "Kein Eintrag vorhanden (Tippe auf '+ Eintrag / Foto' oder doppelt auf den Tag)",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.outline,
                     modifier = Modifier.padding(top = 4.dp)
@@ -255,6 +368,11 @@ fun KlassischerMonatsKalender(
             }
 
             ausgewaehlteEintraege.forEach { eintrag ->
+                val ortKey = eintrag.einsatzort.ifBlank { eintrag.titel }
+                val einfacheKm = standortKmMap[ortKey] ?: standortKmMap[eintrag.titel] ?: 0.0
+                val gesamtKm = if (hinUndRueckfahrt) einfacheKm * 2.0 else einfacheKm
+                val fahrtkosten = gesamtKm * kmPauschale
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -271,20 +389,25 @@ fun KlassischerMonatsKalender(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
+                        val basisInfo = when (eintrag.typ) {
+                            "SCHICHT" -> String.format(
+                                Locale.GERMAN,
+                                "%s-%s (%.1f Std. • %.2f €)",
+                                eintrag.startZeit,
+                                eintrag.endZeit,
+                                eintrag.berechneNettoStunden(),
+                                eintrag.berechneVerdienst()
+                            )
+                            "TERMIN" -> "${eintrag.startZeit}-${eintrag.endZeit} Uhr" +
+                                if (eintrag.einsatzort.isNotBlank()) " • ${eintrag.einsatzort}" else ""
+                            else -> if (eintrag.einsatzort.isNotBlank()) "Frei • ${eintrag.einsatzort}" else "Freier Tag"
+                        }
+                        val kmInfo = if (einfacheKm > 0.0 && (eintrag.typ == "SCHICHT" || eintrag.typ == "TERMIN")) {
+                            String.format(Locale.GERMAN, " • %.0f km (%.2f €)", gesamtKm, fahrtkosten)
+                        } else ""
+
                         Text(
-                            text = when (eintrag.typ) {
-                                "SCHICHT" -> String.format(
-                                    Locale.GERMAN,
-                                    "%s - %s Uhr (%.1f Std. • %.2f €)",
-                                    eintrag.startZeit,
-                                    eintrag.endZeit,
-                                    eintrag.berechneNettoStunden(),
-                                    eintrag.berechneVerdienst()
-                                )
-                                "TERMIN" -> "${eintrag.startZeit} - ${eintrag.endZeit} Uhr" +
-                                    if (eintrag.einsatzort.isNotBlank()) " • ${eintrag.einsatzort}" else ""
-                                else -> if (eintrag.einsatzort.isNotBlank()) "Frei • ${eintrag.einsatzort}" else "Freier Tag"
-                            },
+                            text = basisInfo + kmInfo,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -293,11 +416,11 @@ fun KlassischerMonatsKalender(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         IconButton(
                             onClick = { onTagKlick(ausgewaehlterTag, eintrag) },
-                            modifier = Modifier.size(34.dp)
+                            modifier = Modifier.size(32.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Edit,
-                                contentDescription = "Eintrag bearbeiten",
+                                contentDescription = "Bearbeiten",
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -305,11 +428,11 @@ fun KlassischerMonatsKalender(
                         if (onEintragDirektLoeschen != null) {
                             IconButton(
                                 onClick = { onEintragDirektLoeschen(eintrag) },
-                                modifier = Modifier.size(34.dp)
+                                modifier = Modifier.size(32.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.DeleteOutline,
-                                    contentDescription = "Eintrag sofort löschen",
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Sofort löschen",
                                     tint = MaterialTheme.colorScheme.error,
                                     modifier = Modifier.size(18.dp)
                                 )
