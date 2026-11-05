@@ -9,10 +9,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ViewList
@@ -26,21 +29,31 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import java.util.Locale
 
 @Composable
 fun HamburgerMenuInhalt(
     istKalenderAnsicht: Boolean,
     aktuellerMonatName: String,
+    aktuellerStundenlohn: Double,
+    monatsFahrtkosten: Double,
+    anzahlFotosGesamt: Int,
     anzahlLogs: Int,
     onAnsichtWechseln: () -> Unit,
     onSucheOeffnen: () -> Unit,
+    onFotoGalerieOeffnen: () -> Unit,
+    onStundenlohnOeffnen: () -> Unit,
+    onFahrtkostenOeffnen: () -> Unit,
+    onEinstellungenOeffnen: () -> Unit,
     onPdfImport: () -> Unit,
     onMonatLeeren: () -> Unit,
     onAufGeraetSpeichern: () -> Unit,
     onVomGeraetLaden: () -> Unit,
-    onEinstellungenOeffnen: () -> Unit,
     onFehlerLogOeffnen: () -> Unit
 ) {
+    val formatierterLohn = String.format(Locale.GERMAN, "%.2f €/Std.", aktuellerStundenlohn)
+    val formatierteFahrtkosten = String.format(Locale.GERMAN, "%.2f €", monatsFahrtkosten)
+
     ModalDrawerSheet {
         Column(
             modifier = Modifier
@@ -49,15 +62,16 @@ fun HamburgerMenuInhalt(
         ) {
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "Dienstplan",
+                text = "Dienstplan-Menü",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
 
+            // 1. Ansicht, Suche & Foto-Galerie
             Text(
-                text = "Ansicht & Suche",
+                text = "Ansicht, Suche & Fotos",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
@@ -84,11 +98,46 @@ fun HamburgerMenuInhalt(
                 icon = { Icon(Icons.Default.Search, contentDescription = null) },
                 onClick = onSucheOeffnen
             )
+            NavigationDrawerItem(
+                label = { Text("Alle Tages-Fotos ($anzahlFotosGesamt)") },
+                selected = false,
+                icon = { Icon(Icons.Default.Image, contentDescription = null) },
+                onClick = onFotoGalerieOeffnen
+            )
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
 
+            // 2. Lohn, Fahrtkosten & Standorte
             Text(
-                text = "Dienstplan & Verwaltung",
+                text = "Gehalt, Fahrtkosten & Orte",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            )
+            NavigationDrawerItem(
+                label = { Text("Stundenlohn & Gehalt ($formatierterLohn)") },
+                selected = false,
+                icon = { Icon(Icons.Default.Edit, contentDescription = null) },
+                onClick = onStundenlohnOeffnen
+            )
+            NavigationDrawerItem(
+                label = { Text("Fahrtkosten & Standorte ($formatierteFahrtkosten)") },
+                selected = false,
+                icon = { Icon(Icons.Default.Place, contentDescription = null) },
+                onClick = onFahrtkostenOeffnen
+            )
+            NavigationDrawerItem(
+                label = { Text("Orts-Farben & NRW-Daten") },
+                selected = false,
+                icon = { Icon(Icons.Default.Palette, contentDescription = null) },
+                onClick = onEinstellungenOeffnen
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
+
+            // 3. Dienstplan-Import & Aufräumen
+            Text(
+                text = "Dienstplan & Aufräumen",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
@@ -100,17 +149,11 @@ fun HamburgerMenuInhalt(
                 onClick = onPdfImport
             )
             NavigationDrawerItem(
-                label = { Text("Einstellungen & Orts-Farben") },
-                selected = false,
-                icon = { Icon(Icons.Default.Palette, contentDescription = null) },
-                onClick = onEinstellungenOeffnen
-            )
-            NavigationDrawerItem(
                 label = { Text("Monat leeren ($aktuellerMonatName)") },
                 selected = false,
                 icon = {
                     Icon(
-                        Icons.Default.DeleteSweep,
+                        Icons.Default.Delete,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.error
                     )
@@ -118,8 +161,9 @@ fun HamburgerMenuInhalt(
                 onClick = onMonatLeeren
             )
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
 
+            // 4. Backup & Diagnose
             Text(
                 text = "Sichern & Diagnose",
                 style = MaterialTheme.typography.labelMedium,
