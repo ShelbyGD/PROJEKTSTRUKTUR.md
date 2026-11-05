@@ -358,4 +358,3 @@ fun EintragDialog(
         }
     )
 }
-```
