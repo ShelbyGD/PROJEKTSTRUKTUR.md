@@ -1,3 +1,4 @@
+// --- START MINI-BLOCK 1 VON 5 (KalenderAnsicht.kt) ---
 package com.dienstplan.app.ui.components
 
 import android.graphics.BitmapFactory
@@ -58,6 +59,7 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.temporal.WeekFields
 import java.util.Locale
+// --- START MINI-BLOCK 2 VON 5 (KalenderAnsicht.kt) ---
 @Composable
 fun KlassischerMonatsKalender(
     monat: YearMonth,
@@ -88,10 +90,7 @@ fun KlassischerMonatsKalender(
     val wochenFeld = WeekFields.of(Locale.GERMAN).weekOfWeekBasedYear()
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("KW", modifier = Modifier.width(26.dp), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
             wochentage.forEach { tagName ->
                 Text(tagName, modifier = Modifier.weight(1f), textAlign = TextAlign.Center, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -100,20 +99,17 @@ fun KlassischerMonatsKalender(
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
         Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .pointerInput(monat) {
-                    var wischWeg = 0f
-                    detectHorizontalDragGestures(
-                        onDragStart = { wischWeg = 0f },
-                        onHorizontalDrag = { change, dragAmount -> change.consume(); wischWeg += dragAmount },
-                        onDragEnd = {
-                            if (wischWeg > 95f) onMonatWechseln(-1L)
-                            else if (wischWeg < -95f) onMonatWechseln(1L)
-                        }
-                    )
-                }
+            modifier = Modifier.weight(1f).fillMaxWidth().pointerInput(monat) {
+                var wischWeg = 0f
+                detectHorizontalDragGestures(
+                    onDragStart = { wischWeg = 0f },
+                    onHorizontalDrag = { change, dragAmount -> change.consume(); wischWeg += dragAmount },
+                    onDragEnd = {
+                        if (wischWeg > 95f) onMonatWechseln(-1L)
+                        else if (wischWeg < -95f) onMonatWechseln(1L)
+                    }
+                )
+            }
         ) {
             wochenZeilen.forEach { woche ->
                 val kw = woche.filterNotNull().firstOrNull()?.get(wochenFeld)?.toString() ?: ""
@@ -129,173 +125,318 @@ fun KlassischerMonatsKalender(
                         if (datum == null) {
                             Box(modifier = Modifier.weight(1f).fillMaxHeight())
                         } else {
-                            val datumKey = datum.toString()
-                            val tagesEintraege = eintraege.filter { it.datum == datumKey }
-                            val hatNotiz = !notizenMap[datumKey].isNullOrBlank()
-                            val hatFotos = !fotosProTagMap[datumKey].isNullOrEmpty()
-                            val feiertag = if (nrwAktiv) NrwDatenHelfer.holeFeiertagNrw(datum) else null
-                            val ferien = if (nrwAktiv) NrwDatenHelfer.holeSchulferienNrw(datum) else null
-                            val istAusgewaehlt = datum == ausgewaehlterTag
-                            val istHeute = datum == heute
-
-                            val zellenHintergrund = when {
-                                istAusgewaehlt -> MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
-                                feiertag != null -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.24f)
-                                ferien != null -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.28f)
-                                else -> Color.Transparent
-                            }
-
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .background(zellenHintergrund)
-                                    .border(
-                                        width = if (istAusgewaehlt) 1.6.dp else 0.25.dp,
-                                        color = if (istAusgewaehlt) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
-                                    )
-                                    .clickable {
-                                        if (ausgewaehlterTag == datum) onTagKlick(datum, tagesEintraege.firstOrNull())
-                                        else ausgewaehlterTag = datum
-                                    }
-                            ) {
-                                // DEUTLICHER KOPFBALKEN FÜR FEIERTAGE & FERIEN
-                                if (feiertag != null) {
-                                    Box(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.error).padding(horizontal = 2.dp, vertical = 1.dp)) {
-                                        Text(feiertag.replace(" (NRW)", ""), fontSize = 7.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onError, maxLines = 1, overflow = TextOverflow.Ellipsis, lineHeight = 8.sp)
-                                    }
-                                } else if (ferien != null) {
-                                    Box(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.tertiary).padding(horizontal = 2.dp, vertical = 1.dp)) {
-                                        Text(ferien.replace(" NRW", "").replace(" (NRW)", ""), fontSize = 7.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis, lineHeight = 8.sp)
-                                    }
+                            val key = datum.toString()
+                            KalenderTagZelle(
+                                modifier = Modifier.weight(1f).fillMaxHeight(),
+                                datum = datum,
+                                istAusgewaehlt = datum == ausgewaehlterTag,
+                                istHeute = datum == heute,
+                                tagesEintraege = eintraege.filter { it.datum == key },
+                                farbenMap = farbenMap,
+                                feiertag = if (nrwAktiv) NrwDatenHelfer.holeFeiertagNrw(datum) else null,
+                                ferien = if (nrwAktiv) NrwDatenHelfer.holeSchulferienNrw(datum) else null,
+                                hatNotiz = !notizenMap[key].isNullOrBlank(),
+                                hatFotos = !fotosProTagMap[key].isNullOrEmpty(),
+                                onKlick = {
+                                    val liste = eintraege.filter { it.datum == key }
+                                    if (ausgewaehlterTag == datum) onTagKlick(datum, liste.firstOrNull())
+                                    else ausgewaehlterTag = datum
                                 }
-
-                                Column(modifier = Modifier.padding(2.dp)) {
-                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = datum.dayOfMonth.toString(),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            fontWeight = if (feiertag != null || ferien != null || istAusgewaehlt || istHeute) FontWeight.Bold else FontWeight.Normal,
-                                            color = when {
-                                                feiertag != null -> MaterialTheme.colorScheme.error
-                                                istHeute -> MaterialTheme.colorScheme.primary
-                                                else -> MaterialTheme.colorScheme.onSurface
-                                            }
-                                        )
-                                        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                                            if (hatNotiz) Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondary))
-                                            if (hatFotos) Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
-                                        }
-                                    }
-                                    tagesEintraege.take(2).forEach { eintrag ->
-                                        val tagFarbe = when {
-                                            farbenMap.containsKey(eintrag.einsatzort) -> Color(farbenMap[eintrag.einsatzort]!!)
-                                            farbenMap.containsKey(eintrag.titel) -> Color(farbenMap[eintrag.titel]!!)
-                                            eintrag.typ == "FREI" -> MaterialTheme.colorScheme.secondary
-                                            eintrag.typ == "TERMIN" -> MaterialTheme.colorScheme.tertiary
-                                            else -> MaterialTheme.colorScheme.primary
-                                        }
-                                        Column(
-                                            modifier = Modifier.fillMaxWidth().padding(top = 2.dp).background(tagFarbe.copy(alpha = 0.22f), RoundedCornerShape(3.dp)).padding(horizontal = 3.dp, vertical = 1.dp)
-                                        ) {
-                                            Text(eintrag.titel, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, color = tagFarbe, maxLines = 1, overflow = TextOverflow.Ellipsis, lineHeight = 10.sp)
-                                            if (eintrag.typ == "SCHICHT" || eintrag.typ == "TERMIN") {
-                                                Text("${eintrag.startZeit}-${eintrag.endZeit}", fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, lineHeight = 9.sp)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant
-                          val tagKey = ausgewaehlterTag.toString()
-        val ausgewaehlteEintraege = eintraege.filter { it.datum == tagKey }
-        val tagesNotiz = notizenMap[tagKey].orEmpty()
-        val tagesFotos = fotosProTagMap[tagKey].orEmpty()
-        val tagFeiertag = if (nrwAktiv) NrwDatenHelfer.holeFeiertagNrw(ausgewaehlterTag) else null
-        val tagFerien = if (nrwAktiv) NrwDatenHelfer.holeSchulferienNrw(ausgewaehlterTag) else null
-
-        Column(
-            modifier = Modifier.fillMaxWidth().heightIn(min = 104.dp, max = 175.dp).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 6.dp)
-        ) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Am ${ausgewaehlterTag.dayOfMonth}.${ausgewaehlterTag.monthValue}.${ausgewaehlterTag.year}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
-                    if (tagFeiertag != null || tagFerien != null) {
-                        Text(
-                            text = listOfNotNull(tagFeiertag, tagFerien).joinToString(" • "),
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (tagFeiertag != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary
-                        )
-                    }
-                }
-                TextButton(onClick = { onTagKlick(ausgewaehlterTag, null) }) { Text("+ Eintrag") }
-            }
-
-            if (tagesNotiz.isNotBlank()) {
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    shape = RoundedCornerShape(6.dp),
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp).clickable { onTagKlick(ausgewaehlterTag, ausgewaehlteEintraege.firstOrNull()) }
-                ) {
-                    Text("Notiz: $tagesNotiz", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
-                }
-            }
-
-            if (tagesFotos.isNotEmpty()) {
-                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    tagesFotos.forEach { fotoFile ->
-                        val bmp = remember(fotoFile.absolutePath) { runCatching { BitmapFactory.decodeFile(fotoFile.absolutePath) }.getOrNull() }
-                        if (bmp != null) {
-                            Image(
-                                bitmap = bmp.asImageBitmap(),
-                                contentDescription = "Tagesfoto",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(6.dp)).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp)).clickable { onFotoAnsehen(fotoFile) }
                             )
                         }
                     }
                 }
             }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        KalenderTagesDetails(
+            tag = ausgewaehlterTag,
+            eintraege = eintraege.filter { it.datum == ausgewaehlterTag.toString() },
+            nrwAktiv = nrwAktiv,
+            tagesNotiz = notizenMap[ausgewaehlterTag.toString()].orEmpty(),
+            tagesFotos = fotosProTagMap[ausgewaehlterTag.toString()].orEmpty(),
+            standortKmMap = standortKmMap,
+            kmPauschale = kmPauschale,
+            hinUndRueckfahrt = hinUndRueckfahrt,
+            onFotoAnsehen = onFotoAnsehen,
+            onTagKlick = onTagKlick,
+            onEintragDirektLoeschen = onEintragDirektLoeschen
+        )
+    }
+}
+// --- START MINI-BLOCK 3 VON 5 (KalenderAnsicht.kt) ---
+@Composable
+private fun KalenderTagZelle(
+    modifier: Modifier,
+    datum: LocalDate,
+    istAusgewaehlt: Boolean,
+    istHeute: Boolean,
+    tagesEintraege: List<EintragEntity>,
+    farbenMap: Map<String, Long>,
+    feiertag: String?,
+    ferien: String?,
+    hatNotiz: Boolean,
+    hatFotos: Boolean,
+    onKlick: () -> Unit
+) {
+    val hintergrund = when {
+        istAusgewaehlt -> MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+        feiertag != null -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.24f)
+        ferien != null -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.28f)
+        else -> Color.Transparent
+    }
+    val rahmenFarbe = if (istAusgewaehlt) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
 
-            ausgewaehlteEintraege.forEach { eintrag ->
-                val ortKey = eintrag.einsatzort.ifBlank { eintrag.titel }
-                val einfacheKm = standortKmMap[ortKey] ?: standortKmMap[eintrag.titel] ?: 0.0
-                val gesamtKm = if (hinUndRueckfahrt) einfacheKm * 2.0 else einfacheKm
-                val fahrtkosten = gesamtKm * kmPauschale
+    Column(
+        modifier = modifier
+            .background(hintergrund)
+            .border(if (istAusgewaehlt) 1.6.dp else 0.25.dp, rahmenFarbe)
+            .clickable { onKlick() }
+    ) {
+        if (feiertag != null) {
+            Box(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.error).padding(horizontal = 2.dp, vertical = 1.dp)) {
+                Text(feiertag.replace(" (NRW)", ""), fontSize = 7.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onError, maxLines = 1, overflow = TextOverflow.Ellipsis, lineHeight = 8.sp)
+            }
+        } else if (ferien != null) {
+            Box(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.tertiary).padding(horizontal = 2.dp, vertical = 1.dp)) {
+                Text(ferien.replace(" NRW", "").replace(" (NRW)", ""), fontSize = 7.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis, lineHeight = 8.sp)
+            }
+        }
 
-                Row(
-                    modifier = Modifier.fillMaxWidth().clickable { onTagKlick(ausgewaehlterTag, eintrag) }.padding(vertical = 2.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+        Column(modifier = Modifier.padding(2.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = datum.dayOfMonth.toString(),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = if (feiertag != null || ferien != null || istAusgewaehlt || istHeute) FontWeight.Bold else FontWeight.Normal,
+                    color = when {
+                        feiertag != null -> MaterialTheme.colorScheme.error
+                        istHeute -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.onSurface
+                    }
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    if (hatNotiz) Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondary))
+                    if (hatFotos) Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
+                }
+            }
+            tagesEintraege.take(2).forEach { eintrag ->
+                val tagFarbe = when {
+                    farbenMap.containsKey(eintrag.einsatzort) -> Color(farbenMap[eintrag.einsatzort]!!)
+                    farbenMap.containsKey(eintrag.titel) -> Color(farbenMap[eintrag.titel]!!)
+                    eintrag.typ == "FREI" -> MaterialTheme.colorScheme.secondary
+                    eintrag.typ == "TERMIN" -> MaterialTheme.colorScheme.tertiary
+                    else -> MaterialTheme.colorScheme.primary
+                }
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(top = 2.dp).background(tagFarbe.copy(alpha = 0.22f), RoundedCornerShape(3.dp)).padding(horizontal = 3.dp, vertical = 1.dp)
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(eintrag.titel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        val basisInfo = when (eintrag.typ) {
-                            "SCHICHT" -> String.format(Locale.GERMAN, "%s-%s (%.1f Std. • %.2f €)", eintrag.startZeit, eintrag.endZeit, eintrag.berechneNettoStunden(), eintrag.berechneVerdienst())
-                            "TERMIN" -> "${eintrag.startZeit}-${eintrag.endZeit} Uhr" + if (eintrag.einsatzort.isNotBlank()) " • ${eintrag.einsatzort}" else ""
-                            else -> eintrag.typ
-                        }
-                        val kmInfo = if (einfacheKm > 0.0 && (eintrag.typ == "SCHICHT" || eintrag.typ == "TERMIN")) {
-                            String.format(Locale.GERMAN, " • %.0f km (%.2f €)", gesamtKm, fahrtkosten)
-                        } else ""
-                        Text(basisInfo + kmInfo, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    Text(eintrag.titel, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, color = tagFarbe, maxLines = 1, overflow = TextOverflow.Ellipsis, lineHeight = 10.sp)
+                    if (eintrag.typ == "SCHICHT" || eintrag.typ == "TERMIN") {
+                        Text("${eintrag.startZeit}-${eintrag.endZeit}", fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, lineHeight = 9.sp)
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = { onTagKlick(ausgewaehlterTag, eintrag) }, modifier = Modifier.size(30.dp)) {
-                            Icon(Icons.Default.Edit, contentDescription = "Bearbeiten", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
-                        }
-                        if (onEintragDirektLoeschen != null) {
-                            IconButton(onClick = { onEintragDirektLoeschen(eintrag) }, modifier = Modifier.size(30.dp)) {
-                                Icon(Icons.Default.Delete, contentDescription = "Löschen", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
-                            }
-                        }
+                }
+            }
+        }
+    }
+}
+// --- START MINI-BLOCK 3 VON 5 (KalenderAnsicht.kt) ---
+@Composable
+private fun KalenderTagZelle(
+    modifier: Modifier,
+    datum: LocalDate,
+    istAusgewaehlt: Boolean,
+    istHeute: Boolean,
+    tagesEintraege: List<EintragEntity>,
+    farbenMap: Map<String, Long>,
+    feiertag: String?,
+    ferien: String?,
+    hatNotiz: Boolean,
+    hatFotos: Boolean,
+    onKlick: () -> Unit
+) {
+    val hintergrund = when {
+        istAusgewaehlt -> MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+        feiertag != null -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.24f)
+        ferien != null -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.28f)
+        else -> Color.Transparent
+    }
+    val rahmenFarbe = if (istAusgewaehlt) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+
+    Column(
+        modifier = modifier
+            .background(hintergrund)
+            .border(if (istAusgewaehlt) 1.6.dp else 0.25.dp, rahmenFarbe)
+            .clickable { onKlick() }
+    ) {
+        if (feiertag != null) {
+            Box(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.error).padding(horizontal = 2.dp, vertical = 1.dp)) {
+                Text(feiertag.replace(" (NRW)", ""), fontSize = 7.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onError, maxLines = 1, overflow = TextOverflow.Ellipsis, lineHeight = 8.sp)
+            }
+        } else if (ferien != null) {
+            Box(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.tertiary).padding(horizontal = 2.dp, vertical = 1.dp)) {
+                Text(ferien.replace(" NRW", "").replace(" (NRW)", ""), fontSize = 7.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onTertiary, maxLines = 1, overflow = TextOverflow.Ellipsis, lineHeight = 8.sp)
+            }
+        }
+
+        Column(modifier = Modifier.padding(2.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = datum.dayOfMonth.toString(),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = if (feiertag != null || ferien != null || istAusgewaehlt || istHeute) FontWeight.Bold else FontWeight.Normal,
+                    color = when {
+                        feiertag != null -> MaterialTheme.colorScheme.error
+                        istHeute -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.onSurface
                     }
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    if (hatNotiz) Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondary))
+                    if (hatFotos) Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
+                }
+            }
+            tagesEintraege.take(2).forEach { eintrag ->
+                val tagFarbe = when {
+                    farbenMap.containsKey(eintrag.einsatzort) -> Color(farbenMap[eintrag.einsatzort]!!)
+                    farbenMap.containsKey(eintrag.titel) -> Color(farbenMap[eintrag.titel]!!)
+                    eintrag.typ == "FREI" -> MaterialTheme.colorScheme.secondary
+                    eintrag.typ == "TERMIN" -> MaterialTheme.colorScheme.tertiary
+                    else -> MaterialTheme.colorScheme.primary
+                }
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(top = 2.dp).background(tagFarbe.copy(alpha = 0.22f), RoundedCornerShape(3.dp)).padding(horizontal = 3.dp, vertical = 1.dp)
+                ) {
+                    Text(eintrag.titel, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, color = tagFarbe, maxLines = 1, overflow = TextOverflow.Ellipsis, lineHeight = 10.sp)
+                    if (eintrag.typ == "SCHICHT" || eintrag.typ == "TERMIN") {
+                        Text("${eintrag.startZeit}-${eintrag.endZeit}", fontSize = 8.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, lineHeight = 9.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+// --- START MINI-BLOCK 4 VON 5 (KalenderAnsicht.kt) ---
+@Composable
+private fun KalenderTagesDetails(
+    tag: LocalDate,
+    eintraege: List<EintragEntity>,
+    nrwAktiv: Boolean,
+    tagesNotiz: String,
+    tagesFotos: List<File>,
+    standortKmMap: Map<String, Double>,
+    kmPauschale: Double,
+    hinUndRueckfahrt: Boolean,
+    onFotoAnsehen: (File) -> Unit,
+    onTagKlick: (LocalDate, EintragEntity?) -> Unit,
+    onEintragDirektLoeschen: ((EintragEntity) -> Unit)?
+) {
+    val tagFeiertag = if (nrwAktiv) NrwDatenHelfer.holeFeiertagNrw(tag) else null
+    val tagFerien = if (nrwAktiv) NrwDatenHelfer.holeSchulferienNrw(tag) else null
+
+    Column(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 104.dp, max = 175.dp).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 6.dp)
+    ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Am ${tag.dayOfMonth}.${tag.monthValue}.${tag.year}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                if (tagFeiertag != null || tagFerien != null) {
+                    Text(
+                        text = listOfNotNull(tagFeiertag, tagFerien).joinToString(" • "),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (tagFeiertag != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary
+                    )
+                }
+            }
+            TextButton(onClick = { onTagKlick(tag, null) }) { Text("+ Eintrag") }
+        }
+
+        if (tagesNotiz.isNotBlank()) {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(6.dp),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp).clickable { onTagKlick(tag, eintraege.firstOrNull()) }
+            ) {
+                Text("Notiz: $tagesNotiz", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+            }
+        }
+
+        if (tagesFotos.isNotEmpty()) {
+            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                tagesFotos.forEach { fotoFile ->
+                    val bmp = remember(fotoFile.absolutePath) { runCatching { BitmapFactory.decodeFile(fotoFile.absolutePath) }.getOrNull() }
+                    if (bmp != null) {
+                        Image(
+                            bitmap = bmp.asImageBitmap(),
+                            contentDescription = "Tagesfoto",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.size(44.dp).clip(RoundedCornerShape(6.dp)).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp)).clickable { onFotoAnsehen(fotoFile) }
+                        )
+                    }
+                }
+            }
+        }
+
+        eintraege.forEach { eintrag ->
+            KalenderEintragZeile(
+                eintrag = eintrag,
+                standortKmMap = standortKmMap,
+                kmPauschale = kmPauschale,
+                hinUndRueckfahrt = hinUndRueckfahrt,
+                onBearbeiten = { onTagKlick(tag, eintrag) },
+                onLoeschen = onEintragDirektLoeschen
+            )
+        }
+    }
+}
+// --- START MINI-BLOCK 5 VON 5 (KalenderAnsicht.kt) ---
+@Composable
+private fun KalenderEintragZeile(
+    eintrag: EintragEntity,
+    standortKmMap: Map<String, Double>,
+    kmPauschale: Double,
+    hinUndRueckfahrt: Boolean,
+    onBearbeiten: () -> Unit,
+    onLoeschen: ((EintragEntity) -> Unit)?
+) {
+    val ortKey = eintrag.einsatzort.ifBlank { eintrag.titel }
+    val einfacheKm = standortKmMap[ortKey] ?: standortKmMap[eintrag.titel] ?: 0.0
+    val gesamtKm = if (hinUndRueckfahrt) einfacheKm * 2.0 else einfacheKm
+    val fahrtkosten = gesamtKm * kmPauschale
+
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable { onBearbeiten() }.padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(eintrag.titel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val basisInfo = when (eintrag.typ) {
+                "SCHICHT" -> String.format(
+                    Locale.GERMAN,
+                    "%s-%s (%.1f Std. • %.2f €)",
+                    eintrag.startZeit,
+                    eintrag.endZeit,
+                    eintrag.berechneNettoStunden(),
+                    eintrag.berechneVerdienst()
+                )
+                "TERMIN" -> "${eintrag.startZeit}-${eintrag.endZeit} Uhr" +
+                    if (eintrag.einsatzort.isNotBlank()) " • ${eintrag.einsatzort}" else ""
+                else -> eintrag.typ
+            }
+            val kmInfo = if (einfacheKm > 0.0 && (eintrag.typ == "SCHICHT" || eintrag.typ == "TERMIN")) {
+                String.format(Locale.GERMAN, " • %.0f km (%.2f €)", gesamtKm, fahrtkosten)
+            } else ""
+            Text(basisInfo + kmInfo, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBearbeiten, modifier = Modifier.size(30.dp)) {
+                Icon(Icons.Default.Edit, contentDescription = "Bearbeiten", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+            }
+            if (onLoeschen != null) {
+                IconButton(onClick = { onLoeschen(eintrag) }, modifier = Modifier.size(30.dp)) {
+                    Icon(Icons.Default.Delete, contentDescription = "Löschen", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
                 }
             }
         }
