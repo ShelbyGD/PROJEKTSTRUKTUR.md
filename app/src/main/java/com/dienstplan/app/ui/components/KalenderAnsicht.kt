@@ -33,6 +33,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,6 +45,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -73,6 +75,11 @@ fun KlassischerMonatsKalender(
     onTagKlick: (LocalDate, EintragEntity?) -> Unit,
     onEintragDirektLoeschen: ((EintragEntity) -> Unit)? = null
 ) {
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        NrwDatenHelfer.initialisiere(context)
+    }
+
     val heute = LocalDate.now()
     var ausgewaehlterTag by remember(monat) {
         mutableStateOf(if (YearMonth.from(heute) == monat) heute else monat.atDay(1))
@@ -190,7 +197,39 @@ fun KlassischerMonatsKalender(
                                         if (ferien != null) Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(MaterialTheme.colorScheme.tertiary))
                                     }
                                 }
-                                tagesEintraege.take(2).forEach { eintrag ->
+
+                                if (feiertag != null) {
+                                    Text(
+                                        text = feiertag.replace(" (NRW)", ""),
+                                        fontSize = 8.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = MaterialTheme.colorScheme.onErrorContainer,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        lineHeight = 9.sp,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 1.dp)
+                                            .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f), RoundedCornerShape(3.dp))
+                                            .padding(horizontal = 3.dp, vertical = 1.dp)
+                                    )
+                                } else if (ferien != null && tagesEintraege.isEmpty()) {
+                                    Text(
+                                        text = ferien.replace(" NRW", "").replace(" (NRW)", ""),
+                                        fontSize = 8.sp,
+                                        color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        lineHeight = 9.sp,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 1.dp)
+                                            .background(MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.45f), RoundedCornerShape(3.dp))
+                                            .padding(horizontal = 3.dp, vertical = 1.dp)
+                                    )
+                                }
+
+                                tagesEintraege.take(if (feiertag != null) 1 else 2).forEach { eintrag ->
                                     val tagFarbe = when {
                                         farbenMap.containsKey(eintrag.einsatzort) -> Color(farbenMap[eintrag.einsatzort]!!)
                                         farbenMap.containsKey(eintrag.titel) -> Color(farbenMap[eintrag.titel]!!)
