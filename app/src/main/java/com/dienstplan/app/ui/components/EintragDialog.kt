@@ -34,7 +34,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -46,7 +45,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -151,7 +149,7 @@ fun EintragDialog(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (bestehenderEintrag == null) "Schichtplan bearbeiten" else "Eintrag bearbeiten",
+                    text = if (bestehenderEintrag == null) "Neuer Eintrag" else "Eintrag bearbeiten",
                     style = MaterialTheme.typography.titleLarge
                 )
                 if (bestehenderEintrag != null && onLoeschen != null) {
@@ -167,8 +165,8 @@ fun EintragDialog(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -181,8 +179,8 @@ fun EintragDialog(
                         }
                         Text(
                             text = formatiertesDatum,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
                             textAlign = TextAlign.Center
                         )
                         IconButton(onClick = { datumAendern(1) }) {
@@ -191,7 +189,7 @@ fun EintragDialog(
                     }
                 }
 
-                Text("Schnellauswahl (Vorlagen):", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                Text("Schnellauswahl:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(
                     modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -211,10 +209,10 @@ fun EintragDialog(
                     }
                 }
 
-                HorizontalDivider()
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("SCHICHT" to "Schicht", "FREI" to "Frei / Urlaub", "TERMIN" to "Termin").forEach { (key, label) ->
+                    listOf("SCHICHT" to "Schicht", "FREI" to "Frei", "TERMIN" to "Termin").forEach { (key, label) ->
                         FilterChip(
                             selected = typ == key,
                             onClick = {
@@ -233,7 +231,7 @@ fun EintragDialog(
                         titel = it
                         if (typ == "SCHICHT" && einsatzort.isBlank()) einsatzort = it
                     },
-                    label = { Text(if (typ == "SCHICHT") "Markt / Schicht" else if (typ == "FREI") "Grund (Frei, Urlaub)" else "Termin-Titel") },
+                    label = { Text(if (typ == "SCHICHT") "Bezeichnung / Markt" else if (typ == "FREI") "Bezeichnung (z. B. Frei, Urlaub)" else "Termin") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -245,11 +243,11 @@ fun EintragDialog(
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(value = pauseText, onValueChange = { pauseText = it }, label = { Text("Pause (Min.)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), singleLine = true, modifier = Modifier.weight(1f))
-                        OutlinedTextField(value = lohnText, onValueChange = { lohnText = it }, label = { Text("Stundenlohn (€)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.weight(1f))
+                        OutlinedTextField(value = lohnText, onValueChange = { lohnText = it }, label = { Text("Lohn (€/Std.)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.weight(1f))
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(value = einsatzort, onValueChange = { einsatzort = it }, label = { Text("Standort / Ort") }, singleLine = true, modifier = Modifier.weight(1.3f))
-                        OutlinedTextField(value = kmText, onValueChange = { kmText = it }, label = { Text("Distanz (km)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.weight(0.9f))
+                        OutlinedTextField(value = einsatzort, onValueChange = { einsatzort = it }, label = { Text("Einsatzort") }, singleLine = true, modifier = Modifier.weight(1.3f))
+                        OutlinedTextField(value = kmText, onValueChange = { kmText = it }, label = { Text("Strecke (km)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.weight(0.9f))
                     }
                 } else if (typ == "TERMIN") {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -257,31 +255,27 @@ fun EintragDialog(
                         OutlinedTextField(value = endZeit, onValueChange = { endZeit = it }, label = { Text("Bis (HH:MM)") }, singleLine = true, modifier = Modifier.weight(1f))
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(value = einsatzort, onValueChange = { einsatzort = it }, label = { Text("Standort / Ort") }, singleLine = true, modifier = Modifier.weight(1.3f))
-                        OutlinedTextField(value = kmText, onValueChange = { kmText = it }, label = { Text("Distanz (km)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.weight(0.9f))
+                        OutlinedTextField(value = einsatzort, onValueChange = { einsatzort = it }, label = { Text("Ort") }, singleLine = true, modifier = Modifier.weight(1.3f))
+                        OutlinedTextField(value = kmText, onValueChange = { kmText = it }, label = { Text("Strecke (km)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.weight(0.9f))
                     }
                 }
 
                 OutlinedTextField(
                     value = tagesNotiz,
                     onValueChange = { tagesNotiz = it },
-                    label = { Text("Tages-Notiz (für diesen Tag)") },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = Color(0xFFFFF59D).copy(alpha = 0.25f),
-                        unfocusedContainerColor = Color(0xFFFFF59D).copy(alpha = 0.18f)
-                    ),
+                    label = { Text("Notiz zum Tag (optional)") },
                     minLines = 2,
                     maxLines = 4,
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                HorizontalDivider()
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Fotos (${tagesFotos.size})", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Text("Fotos (${tagesFotos.size})", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         OutlinedButton(onClick = { onFotoAusGalerie(datum) }) {
                             Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(16.dp))
