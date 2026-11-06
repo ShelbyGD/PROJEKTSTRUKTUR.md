@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PictureAsPdf
@@ -101,7 +102,7 @@ fun HamburgerMenuInhalt(
             HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
 
             Text(
-                text = "Gehalt, Fahrtkosten & Orte",
+                text = "Gehalt, Fahrtkosten & Ferien",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
@@ -119,7 +120,13 @@ fun HamburgerMenuInhalt(
                 onClick = onFahrtkostenOeffnen
             )
             NavigationDrawerItem(
-                label = { Text("Orts-Farben & NRW-Daten") },
+                label = { Text("Feiertage & Schulferien (NRW)") },
+                selected = false,
+                icon = { Icon(Icons.Default.Event, contentDescription = null) },
+                onClick = onEinstellungenOeffnen
+            )
+            NavigationDrawerItem(
+                label = { Text("Orts-Farben & Cloud") },
                 selected = false,
                 icon = { Icon(Icons.Default.Palette, contentDescription = null) },
                 onClick = onEinstellungenOeffnen
