@@ -13,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -26,12 +27,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -71,11 +76,12 @@ import com.dienstplan.app.ui.components.EintragDialog
 import com.dienstplan.app.ui.components.FlacheListenAnsicht
 import com.dienstplan.app.ui.components.HamburgerMenuInhalt
 import com.dienstplan.app.ui.components.KlassischerMonatsKalender
-import com.dienstplan.app.ui.components.MonatsUndGehaltsLeiste
 import com.dienstplan.app.ui.theme.DienstplanTheme
 import com.dienstplan.app.util.CloudBackupHelfer
 import com.dienstplan.app.util.FehlerLogDialog
 import com.dienstplan.app.util.FehlerLogHelfer
+import com.dienstplan.app.util.NettoEinstellungen
+import com.dienstplan.app.util.NettoRechnerHelfer
 import com.dienstplan.app.util.PdfImportHelfer
 import kotlinx.coroutines.launch
 import java.io.File
@@ -122,47 +128,28 @@ fun DienstplanHauptbildschirm(viewModel: DienstplanViewModel = viewModel()) {
     var groesstesFoto by remember { mutableStateOf<File?>(null) }
     var fotoAktualisierungsZaehler by remember { mutableIntStateOf(0) }
 
-    var aktuellerStundenlohn by remember {
-        mutableDoubleStateOf(prefs.getFloat("global_stundenlohn", 15.0f).toDouble())
-    }
-    var kmPauschale by remember {
-        mutableDoubleStateOf(prefs.getFloat("km_pauschale", 0.30f).toDouble())
-    }
-    var hinUndRueckfahrt by remember {
-        mutableStateOf(prefs.getBoolean("hin_rueck", true))
-    }
+    var nettoConfig by remember { mutableStateOf(NettoRechnerHelfer.ladeEinstellungen(context)) }
+    val aktuellerStundenlohn = nettoConfig.stundenlohn
+
+    var kmPauschale by remember { mutableDoubleStateOf(prefs.getFloat("km_pauschale", 0.30f).toDouble()) }
+    var hinUndRueckfahrt by remember { mutableStateOf(prefs.getBoolean("hin_rueck", true)) }
 
     val notizenMap = remember {
         mutableStateMapOf<String, String>().apply {
-            prefs.all.forEach { (k, v) ->
-                if (k.startsWith("notiz_") && v is String && v.isNotBlank()) {
-                    put(k.removePrefix("notiz_"), v)
-                }
-            }
+            prefs.all.forEach { (k, v) -> if (k.startsWith("notiz_") && v is String && v.isNotBlank()) put(k.removePrefix("notiz_"), v) }
         }
     }
-
     val standortKmMap = remember {
         mutableStateMapOf<String, Double>().apply {
-            prefs.all.forEach { (k, v) ->
-                if (k.startsWith("km_") && v is Float && v > 0f) {
-                    put(k.removePrefix("km_"), v.toDouble())
-                }
-            }
+            prefs.all.forEach { (k, v) -> if (k.startsWith("km_") && v is Float && v > 0f) put(k.removePrefix("km_"), v.toDouble()) }
         }
     }
 // --- START TEIL 2 (MainActivity.kt) ---
-    val fotosOrdner = remember {
-        File(context.filesDir, "tages_fotos").apply { if (!exists()) mkdirs() }
-    }
-
+    val fotosOrdner = remember { File(context.filesDir, "tages_fotos").apply { if (!exists()) mkdirs() } }
     val alleFotos = remember(fotoAktualisierungsZaehler) {
         fotosOrdner.listFiles()?.filter { it.isFile }?.sortedByDescending { it.name } ?: emptyList()
     }
-
-    val fotosProTagMap = remember(alleFotos) {
-        alleFotos.groupBy { file -> file.name.substringBefore("_") }
-    }
+    val fotosProTagMap = remember(alleFotos) { alleFotos.groupBy { file -> file.name.substringBefore("_") } }
 
     val speichereFotoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         val zielTag = zielDatumFuerNeuesFoto ?: dialogDatum
@@ -173,7 +160,6 @@ fun DienstplanHauptbildschirm(viewModel: DienstplanViewModel = viewModel()) {
                     FileOutputStream(zielDatei).use { output -> input.copyTo(output) }
                 }
                 fotoAktualisierungsZaehler++
-                Toast.makeText(context, "Foto zum Tag $zielTag gespeichert", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -183,45 +169,51 @@ fun DienstplanHauptbildschirm(viewModel: DienstplanViewModel = viewModel()) {
         if (bmp != null && zielTag != null) {
             runCatching {
                 val zielDatei = File(fotosOrdner, "${zielTag}_${System.currentTimeMillis()}.jpg")
-                FileOutputStream(zielDatei).use { out ->
-                    bmp.compress(Bitmap.CompressFormat.JPEG, 90, out)
-                }
+                FileOutputStream(zielDatei).use { out -> bmp.compress(Bitmap.CompressFormat.JPEG, 90, out) }
                 fotoAktualisierungsZaehler++
-                Toast.makeText(context, "Kamerafoto zu $zielTag gespeichert", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
     val pdfLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) scope.launch {
-            val liste = PdfImportHelfer.pdfEinlesen(context, uri, aktuellerMonat.toString())
-            if (liste.isNotEmpty()) viewModel.mehrereEintraegeSpeichern(liste)
-            Toast.makeText(context, "${liste.size} Schicht(en) importiert", Toast.LENGTH_LONG).show()
+            val rohListe = PdfImportHelfer.pdfEinlesen(context, uri, aktuellerMonat.toString())
+            val mitAktuellemLohn = rohListe.map {
+                if (it.typ == "SCHICHT") it.copy(stundenlohn = aktuellerStundenlohn) else it
+            }
+            if (mitAktuellemLohn.isNotEmpty()) viewModel.mehrereEintraegeSpeichern(mitAktuellemLohn)
+            Toast.makeText(context, "${mitAktuellemLohn.size} Schicht(en) mit ${String.format(Locale.GERMAN, "%.2f", aktuellerStundenlohn)} €/Std. importiert", Toast.LENGTH_LONG).show()
         }
     }
 
     val speichernLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
-        if (uri != null) scope.launch {
-            Toast.makeText(context, CloudBackupHelfer.backupAufGeraetSpeichern(context, uri), Toast.LENGTH_LONG).show()
-        }
+        if (uri != null) scope.launch { Toast.makeText(context, CloudBackupHelfer.backupAufGeraetSpeichern(context, uri), Toast.LENGTH_LONG).show() }
     }
-
     val ladenLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) scope.launch {
-            Toast.makeText(context, CloudBackupHelfer.backupVomGeraetLaden(context, uri), Toast.LENGTH_LONG).show()
-        }
+        if (uri != null) scope.launch { Toast.makeText(context, CloudBackupHelfer.backupVomGeraetLaden(context, uri), Toast.LENGTH_LONG).show() }
     }
 
-    val monatsEintraege = alleEintraege.filter { it.datum.startsWith(aktuellerMonat.toString()) }
+    // WICHTIG: Wendet den eingestellten Stundenlohn direkt auf die Monats-Anzeige an
+    val monatsEintraege = remember(alleEintraege, aktuellerMonat, aktuellerStundenlohn) {
+        alleEintraege
+            .filter { it.datum.startsWith(aktuellerMonat.toString()) }
+            .map { if (it.typ == "SCHICHT") it.copy(stundenlohn = aktuellerStundenlohn) else it }
+    }
     val farbenMap = alleFarben.associate { it.einsatzort to it.farbHex }
 
     val monatsFahrtkosten = remember(monatsEintraege, standortKmMap.toMap(), kmPauschale, hinUndRueckfahrt) {
         monatsEintraege.filter { it.typ == "SCHICHT" || it.typ == "TERMIN" }.sumOf { eintrag ->
             val ort = eintrag.einsatzort.ifBlank { eintrag.titel }
             val einfacheKm = standortKmMap[ort] ?: standortKmMap[eintrag.titel] ?: 0.0
-            val faktor = if (hinUndRueckfahrt) 2.0 else 1.0
-            einfacheKm * faktor * kmPauschale
+            einfacheKm * (if (hinUndRueckfahrt) 2.0 else 1.0) * kmPauschale
         }
+    }
+
+    val schichtenMonat = monatsEintraege.filter { it.typ == "SCHICHT" }
+    val gesamtStunden = schichtenMonat.sumOf { it.berechneNettoStunden() }
+    val bruttoMonat = gesamtStunden * aktuellerStundenlohn
+    val lohnAbrechnung = remember(bruttoMonat, nettoConfig, monatsFahrtkosten) {
+        NettoRechnerHelfer.berechneMonatsNetto(bruttoMonat, nettoConfig, monatsFahrtkosten)
     }
 
     ModalNavigationDrawer(
@@ -270,7 +262,44 @@ fun DienstplanHauptbildschirm(viewModel: DienstplanViewModel = viewModel()) {
             }
         ) { innerPadding ->
             Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-                MonatsUndGehaltsLeiste(aktuellerMonat, monatsEintraege) { viewModel.monatWechseln(it) }
+                // Neue kombinierte Monats-, Brutto- & Netto-Leiste (antippbar für Netto-Rechner)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { zeigeStundenlohnDialog = true }
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = { viewModel.monatWechseln(-1L) }) {
+                            Icon(Icons.Default.KeyboardArrowLeft, contentDescription = "Vorheriger Monat")
+                        }
+                        Text(
+                            text = aktuellerMonat.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.GERMAN))
+                                .replaceFirstChar { it.uppercase() },
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        IconButton(onClick = { viewModel.monatWechseln(1L) }) {
+                            Icon(Icons.Default.KeyboardArrowRight, contentDescription = "Nächster Monat")
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Schichten: ${schichtenMonat.size}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(String.format(Locale.GERMAN, "Ist: %.1f Std.", gesamtStunden), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+                        Text(String.format(Locale.GERMAN, "Brutto: %.2f €", lohnAbrechnung.bruttoLohn), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(String.format(Locale.GERMAN, "Netto: %.2f €", lohnAbrechnung.nettoLohn), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
                 if (istKalenderAnsicht) {
                     KlassischerMonatsKalender(
                         monat = aktuellerMonat,
@@ -284,315 +313,15 @@ fun DienstplanHauptbildschirm(viewModel: DienstplanViewModel = viewModel()) {
                         hinUndRueckfahrt = hinUndRueckfahrt,
                         onMonatWechseln = { offset -> viewModel.monatWechseln(offset) },
                         onFotoAnsehen = { groesstesFoto = it },
-                        onTagKlick = { d, e ->
-                            bearbeiteterEintrag = e
-                            dialogDatum = d.toString()
-                        },
+                        onTagKlick = { d, e -> bearbeiteterEintrag = e; dialogDatum = d.toString() },
                         onEintragDirektLoeschen = { viewModel.eintragLoeschen(it) }
                     )
                 } else {
                     FlacheListenAnsicht(aktuellerMonat, monatsEintraege, farbenMap, nrwAktiv) { d, e ->
-                        bearbeiteterEintrag = e
-                        dialogDatum = d.toString()
+                        bearbeiteterEintrag = e; dialogDatum = d.toString()
                     }
                 }
             }
         }
     }
-// --- START TEIL 3 (MainActivity.kt) ---
-    if (dialogDatum != null) {
-        val dStr = dialogDatum!!
-        EintragDialog(
-            initialDatum = dStr,
-            bestehenderEintrag = bearbeiteterEintrag,
-            alleEintraege = alleEintraege,
-            standardStundenlohn = aktuellerStundenlohn,
-            initialTagesNotiz = notizenMap[dStr].orEmpty(),
-            initialStandortKm = bearbeiteterEintrag?.let {
-                val ort = it.einsatzort.ifBlank { it.titel }
-                standortKmMap[ort] ?: 0.0
-            } ?: 0.0,
-            tagesFotos = fotosProTagMap[dStr].orEmpty(),
-            onDatumGeaendert = { dialogDatum = it },
-            onFotoAusGalerie = { d ->
-                zielDatumFuerNeuesFoto = d
-                speichereFotoLauncher.launch("image/*")
-            },
-            onFotoMitKamera = { d ->
-                zielDatumFuerNeuesFoto = d
-                kameraFotoLauncher.launch(null)
-            },
-            onFotoLoeschen = { fotoFile ->
-                runCatching { fotoFile.delete() }
-                fotoAktualisierungsZaehler++
-            },
-            onFotoAnsehen = { groesstesFoto = it },
-            onSpeichern = { eintrag, neueNotiz, neueKm ->
-                viewModel.eintragSpeichern(eintrag)
-                if (neueNotiz.isNotBlank()) {
-                    notizenMap[dStr] = neueNotiz
-                    prefs.edit().putString("notiz_$dStr", neueNotiz).apply()
-                } else {
-                    notizenMap.remove(dStr)
-                    prefs.edit().remove("notiz_$dStr").apply()
-                }
-                val ort = eintrag.einsatzort.ifBlank { eintrag.titel }
-                if (ort.isNotBlank() && neueKm > 0.0) {
-                    standortKmMap[ort] = neueKm
-                    prefs.edit().putFloat("km_$ort", neueKm.toFloat()).apply()
-                }
-                dialogDatum = null
-            },
-            onLoeschen = {
-                viewModel.eintragLoeschen(it)
-                dialogDatum = null
-            },
-            onAbbrechen = { dialogDatum = null }
-        )
-    }
-
-    if (zeigeStundenlohnDialog) {
-        var lohnInput by remember { mutableStateOf(String.format(Locale.GERMAN, "%.2f", aktuellerStundenlohn)) }
-        AlertDialog(
-            onDismissRequest = { zeigeStundenlohnDialog = false },
-            title = { Text("Stundenlohn & Gehalt") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = lohnInput,
-                        onValueChange = { lohnInput = it },
-                        label = { Text("Standard-Stundenlohn (€)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Text(
-                        text = String.format(Locale.GERMAN, "Fahrtkosten diesen Monat: %.2f €", monatsFahrtkosten),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val neuerLohn = lohnInput.replace(",", ".").toDoubleOrNull() ?: aktuellerStundenlohn
-                        aktuellerStundenlohn = neuerLohn
-                        prefs.edit().putFloat("global_stundenlohn", neuerLohn.toFloat()).apply()
-                        val aktualisiert = monatsEintraege.filter { it.typ == "SCHICHT" }.map { it.copy(stundenlohn = neuerLohn) }
-                        if (aktualisiert.isNotEmpty()) viewModel.mehrereEintraegeSpeichern(aktualisiert)
-                        zeigeStundenlohnDialog = false
-                        Toast.makeText(context, "Stundenlohn gespeichert", Toast.LENGTH_SHORT).show()
-                    }
-                ) { Text("Speichern (inkl. Monat)") }
-            },
-            dismissButton = {
-                TextButton(onClick = { zeigeStundenlohnDialog = false }) { Text("Abbrechen") }
-            }
-        )
-    }
-
-    if (zeigeFahrtkostenDialog) {
-        var pauschaleInput by remember { mutableStateOf(String.format(Locale.GERMAN, "%.2f", kmPauschale)) }
-        var hinRueck by remember { mutableStateOf(hinUndRueckfahrt) }
-        var ausgewaehlterOrt by remember { mutableStateOf("") }
-        var ortKmInput by remember { mutableStateOf("") }
-        val bekannteOrte = remember(alleEintraege) {
-            alleEintraege.map { it.einsatzort.ifBlank { it.titel } }.filter { it.isNotBlank() }.distinct()
-        }
-
-        AlertDialog(
-            onDismissRequest = { zeigeFahrtkostenDialog = false },
-            title = { Text("Fahrtkosten & Standorte") },
-            text = {
-                Column(
-                    modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = pauschaleInput,
-                        onValueChange = { pauschaleInput = it },
-                        label = { Text("km-Pauschale (€/km)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable { hinRueck = !hinRueck },
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("Hin- & Rückweg (2x km)")
-                        Checkbox(checked = hinRueck, onCheckedChange = { hinRueck = it })
-                    }
-                    HorizontalDivider()
-                    bekannteOrte.forEach { ort ->
-                        val km = standortKmMap[ort] ?: 0.0
-                        Row(
-                            modifier = Modifier.fillMaxWidth().clickable {
-                                ausgewaehlterOrt = ort
-                                ortKmInput = if (km > 0.0) km.toString() else ""
-                            }.padding(vertical = 2.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(ort, style = MaterialTheme.typography.bodySmall)
-                            Text(if (km > 0.0) "$km km" else "Tippen zum Eintragen", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                    OutlinedTextField(
-                        value = ausgewaehlterOrt,
-                        onValueChange = { ausgewaehlterOrt = it },
-                        label = { Text("Standort (z. B. Bielefeld, Loom)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    OutlinedTextField(
-                        value = ortKmInput,
-                        onValueChange = { ortKmInput = it },
-                        label = { Text("Einfache Strecke (km)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        kmPauschale = pauschaleInput.replace(",", ".").toDoubleOrNull() ?: 0.30
-                        hinUndRueckfahrt = hinRueck
-                        prefs.edit().putFloat("km_pauschale", kmPauschale.toFloat()).putBoolean("hin_rueck", hinUndRueckfahrt).apply()
-                        val kmWert = ortKmInput.replace(",", ".").toDoubleOrNull()
-                        if (ausgewaehlterOrt.isNotBlank() && kmWert != null) {
-                            standortKmMap[ausgewaehlterOrt.trim()] = kmWert
-                            prefs.edit().putFloat("km_${ausgewaehlterOrt.trim()}", kmWert.toFloat()).apply()
-                        }
-                        zeigeFahrtkostenDialog = false
-                    }
-                ) { Text("Speichern") }
-            },
-            dismissButton = {
-                TextButton(onClick = { zeigeFahrtkostenDialog = false }) { Text("Schließen") }
-            }
-        )
-    }
-
-    if (zeigeSuche) {
-        var suchText by remember { mutableStateOf("") }
-        val treffer = remember(suchText, alleEintraege) {
-            if (suchText.isBlank()) emptyList()
-            else alleEintraege.filter {
-                it.titel.contains(suchText, true) || it.einsatzort.contains(suchText, true) || it.datum.contains(suchText)
-            }.sortedByDescending { it.datum }
-        }
-        AlertDialog(
-            onDismissRequest = { zeigeSuche = false },
-            title = { Text("Im Kalender suchen") },
-            text = {
-                Column(modifier = Modifier.fillMaxWidth().heightIn(min = 200.dp, max = 380.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = suchText,
-                        onValueChange = { suchText = it },
-                        label = { Text("Ort, Titel oder Datum") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        treffer.forEach { e ->
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                modifier = Modifier.fillMaxWidth().clickable {
-                                    zeigeSuche = false
-                                    bearbeiteterEintrag = e
-                                    dialogDatum = e.datum
-                                }
-                            ) {
-                                Row(modifier = Modifier.padding(8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("${e.datum}: ${e.titel}", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                                    if (e.typ == "SCHICHT") Text("${e.startZeit}-${e.endZeit}", style = MaterialTheme.typography.bodySmall)
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { zeigeSuche = false }) { Text("Schließen") } }
-        )
-    }
-
-    if (zeigeFotoGalerie) {
-        AlertDialog(
-            onDismissRequest = { zeigeFotoGalerie = false },
-            title = { Text("Alle Tages-Fotos (${alleFotos.size})") },
-            text = {
-                Column(modifier = Modifier.fillMaxWidth().heightIn(min = 200.dp, max = 380.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (alleFotos.isEmpty()) Text("Noch keine Fotos gespeichert.")
-                    alleFotos.forEach { fotoFile ->
-                        val tag = fotoFile.name.substringBefore("_")
-                        val bmp = remember(fotoFile.absolutePath) { runCatching { BitmapFactory.decodeFile(fotoFile.absolutePath) }.getOrNull() }
-                        if (bmp != null) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                                modifier = Modifier.fillMaxWidth().clickable { groesstesFoto = fotoFile }
-                            ) {
-                                Row(modifier = Modifier.padding(8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Image(bitmap = bmp.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(52.dp).clip(RoundedCornerShape(6.dp)))
-                                    Column {
-                                        Text("Datum: $tag", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                                        Text(notizenMap[tag] ?: "Tippen zum Vergrößern", style = MaterialTheme.typography.labelSmall)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { zeigeFotoGalerie = false }) { Text("Schließen") } }
-        )
-    }
-
-    if (groesstesFoto != null) {
-        val bmp = remember(groesstesFoto!!.absolutePath) { runCatching { BitmapFactory.decodeFile(groesstesFoto!!.absolutePath) }.getOrNull() }
-        AlertDialog(
-            onDismissRequest = { groesstesFoto = null },
-            title = { Text(groesstesFoto!!.name.substringBefore("_")) },
-            text = {
-                if (bmp != null) {
-                    Image(bitmap = bmp.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxWidth().heightIn(min = 260.dp, max = 420.dp))
-                }
-            },
-            confirmButton = { TextButton(onClick = { groesstesFoto = null }) { Text("Schließen") } }
-        )
-    }
-
-    if (zeigeMonatLeerenBestaetigung) {
-        AlertDialog(
-            onDismissRequest = { zeigeMonatLeerenBestaetigung = false },
-            title = { Text("Monat leeren?") },
-            text = { Text("Alle Einträge des aktuellen Monats löschen?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    monatsEintraege.forEach { viewModel.eintragLoeschen(it) }
-                    zeigeMonatLeerenBestaetigung = false
-                }) { Text("Löschen", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = { TextButton(onClick = { zeigeMonatLeerenBestaetigung = false }) { Text("Abbrechen") } }
-        )
-    }
-
-    if (zeigeEinstellungen) {
-        EinstellungenDialog(
-            nrwAktiv = nrwAktiv,
-            onNrwUmschalten = { viewModel.nrwDatenUmschalten() },
-            gespeicherteFarben = alleFarben,
-            onFarbeSpeichern = { ort, farbe -> viewModel.farbeSpeichern(ort, farbe) },
-            onFarbeLoeschen = { viewModel.farbeLoeschen(it) },
-            onSchliessen = { zeigeEinstellungen = false }
-        )
-    }
-    if (zeigeFehlerLog) {
-        FehlerLogDialog(onSchliessen = { zeigeFehlerLog = false })
-    }
-}
+// --- ENDE TEIL 2 (MainActivity.kt) ---
