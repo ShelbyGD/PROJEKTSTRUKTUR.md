@@ -160,7 +160,7 @@ fun KlassischerMonatsKalender(
                                     .weight(1f)
                                     .fillMaxHeight()
                                     .border(
-                                        width = if (istAusgewaehlt) 1.8.dp else 0.25.dp,
+                                        width = if (istAusgewaehlt) 1.5.dp else 0.25.dp,
                                         color = if (istAusgewaehlt) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
                                     )
                                     .clickable {
@@ -185,7 +185,7 @@ fun KlassischerMonatsKalender(
                                         }
                                     )
                                     Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        if (hatNotiz) Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(Color(0xFFFBC02D)))
+                                        if (hatNotiz) Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondary))
                                         if (hatFotos) Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
                                         if (ferien != null) Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(MaterialTheme.colorScheme.tertiary))
                                     }
@@ -243,7 +243,7 @@ fun KlassischerMonatsKalender(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 108.dp, max = 180.dp)
+                .heightIn(min = 104.dp, max = 175.dp)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 6.dp)
         ) {
@@ -267,13 +267,13 @@ fun KlassischerMonatsKalender(
                     }
                 }
                 TextButton(onClick = { onTagKlick(ausgewaehlterTag, null) }) {
-                    Text("+ Eintrag / Foto", fontWeight = FontWeight.Bold)
+                    Text("+ Eintrag")
                 }
             }
 
             if (tagesNotiz.isNotBlank()) {
                 Surface(
-                    color = Color(0xFFFFF59D).copy(alpha = 0.25f),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                     shape = RoundedCornerShape(6.dp),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -283,6 +283,7 @@ fun KlassischerMonatsKalender(
                     Text(
                         text = "Notiz: $tagesNotiz",
                         style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
@@ -314,15 +315,6 @@ fun KlassischerMonatsKalender(
                 }
             }
 
-            if (ausgewaehlteEintraege.isEmpty() && tagesNotiz.isBlank() && tagesFotos.isEmpty()) {
-                Text(
-                    text = "Kein Eintrag (Tippe auf '+ Eintrag / Foto' oder 2x auf den Tag)",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-            }
-
             ausgewaehlteEintraege.forEach { eintrag ->
                 val ortKey = eintrag.einsatzort.ifBlank { eintrag.titel }
                 val einfacheKm = standortKmMap[ortKey] ?: standortKmMap[eintrag.titel] ?: 0.0
@@ -338,7 +330,7 @@ fun KlassischerMonatsKalender(
                         Text(
                             text = eintrag.titel,
                             style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
+                            fontWeight = FontWeight.Medium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -353,7 +345,7 @@ fun KlassischerMonatsKalender(
                             )
                             "TERMIN" -> "${eintrag.startZeit}-${eintrag.endZeit} Uhr" +
                                 if (eintrag.einsatzort.isNotBlank()) " • ${eintrag.einsatzort}" else ""
-                            else -> if (eintrag.einsatzort.isNotBlank()) "Frei • ${eintrag.einsatzort}" else "Freier Tag"
+                            else -> eintrag.typ
                         }
                         val kmInfo = if (einfacheKm > 0.0 && (eintrag.typ == "SCHICHT" || eintrag.typ == "TERMIN")) {
                             String.format(Locale.GERMAN, " • %.0f km (%.2f €)", gesamtKm, fahrtkosten)
@@ -363,12 +355,12 @@ fun KlassischerMonatsKalender(
                     }
 
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = { onTagKlick(ausgewaehlterTag, eintrag) }, modifier = Modifier.size(32.dp)) {
-                            Icon(Icons.Default.Edit, contentDescription = "Bearbeiten", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                        IconButton(onClick = { onTagKlick(ausgewaehlterTag, eintrag) }, modifier = Modifier.size(30.dp)) {
+                            Icon(Icons.Default.Edit, contentDescription = "Bearbeiten", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                         }
                         if (onEintragDirektLoeschen != null) {
-                            IconButton(onClick = { onEintragDirektLoeschen(eintrag) }, modifier = Modifier.size(32.dp)) {
-                                Icon(Icons.Default.Delete, contentDescription = "Löschen", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+                            IconButton(onClick = { onEintragDirektLoeschen(eintrag) }, modifier = Modifier.size(30.dp)) {
+                                Icon(Icons.Default.Delete, contentDescription = "Löschen", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
                             }
                         }
                     }
