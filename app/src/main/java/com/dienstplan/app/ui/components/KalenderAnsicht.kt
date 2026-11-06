@@ -166,8 +166,15 @@ fun KlassischerMonatsKalender(
                                 modifier = Modifier
                                     .weight(1f)
                                     .fillMaxHeight()
+                                    .background(
+                                        when {
+                                            feiertag != null -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.12f)
+                                            ferien != null -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.14f)
+                                            else -> Color.Transparent
+                                        }
+                                    )
                                     .border(
-                                        width = if (istAusgewaehlt) 1.5.dp else 0.25.dp,
+                                        width = if (istAusgewaehlt) 1.6.dp else 0.25.dp,
                                         color = if (istAusgewaehlt) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
                                     )
                                     .clickable {
@@ -184,52 +191,63 @@ fun KlassischerMonatsKalender(
                                     Text(
                                         text = datum.dayOfMonth.toString(),
                                         style = MaterialTheme.typography.labelSmall,
-                                        fontWeight = if (feiertag != null || istAusgewaehlt || istHeute) FontWeight.Bold else FontWeight.Normal,
+                                        fontWeight = if (feiertag != null || ferien != null || istAusgewaehlt || istHeute) FontWeight.Bold else FontWeight.Normal,
                                         color = when {
                                             feiertag != null -> MaterialTheme.colorScheme.error
                                             istHeute -> MaterialTheme.colorScheme.primary
+                                            ferien != null -> MaterialTheme.colorScheme.tertiary
                                             else -> MaterialTheme.colorScheme.onSurface
                                         }
                                     )
                                     Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
                                         if (hatNotiz) Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondary))
                                         if (hatFotos) Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
-                                        if (ferien != null) Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(MaterialTheme.colorScheme.tertiary))
+                                        if (ferien != null) Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(MaterialTheme.colorScheme.tertiary))
                                     }
                                 }
 
+                                // Deutlich lesbarer Feiertags- oder Ferien-Balken
                                 if (feiertag != null) {
-                                    Text(
-                                        text = feiertag.replace(" (NRW)", ""),
-                                        fontSize = 8.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = MaterialTheme.colorScheme.onErrorContainer,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        lineHeight = 9.sp,
+                                    Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(top = 1.dp)
-                                            .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f), RoundedCornerShape(3.dp))
+                                            .padding(top = 2.dp)
+                                            .background(MaterialTheme.colorScheme.error.copy(alpha = 0.28f), RoundedCornerShape(3.dp))
+                                            .border(0.6.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.7f), RoundedCornerShape(3.dp))
                                             .padding(horizontal = 3.dp, vertical = 1.dp)
-                                    )
-                                } else if (ferien != null && tagesEintraege.isEmpty()) {
-                                    Text(
-                                        text = ferien.replace(" NRW", "").replace(" (NRW)", ""),
-                                        fontSize = 8.sp,
-                                        color = MaterialTheme.colorScheme.onTertiaryContainer,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                        lineHeight = 9.sp,
+                                    ) {
+                                        Text(
+                                            text = feiertag.replace(" (NRW)", ""),
+                                            fontSize = 8.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            lineHeight = 9.sp
+                                        )
+                                    }
+                                } else if (ferien != null) {
+                                    Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(top = 1.dp)
-                                            .background(MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.45f), RoundedCornerShape(3.dp))
+                                            .padding(top = 2.dp)
+                                            .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.30f), RoundedCornerShape(3.dp))
+                                            .border(0.6.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.8f), RoundedCornerShape(3.dp))
                                             .padding(horizontal = 3.dp, vertical = 1.dp)
-                                    )
+                                    ) {
+                                        Text(
+                                            text = ferien.replace(" NRW", "").replace(" (NRW)", ""),
+                                            fontSize = 8.5.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            lineHeight = 9.sp
+                                        )
+                                    }
                                 }
 
-                                tagesEintraege.take(if (feiertag != null) 1 else 2).forEach { eintrag ->
+                                tagesEintraege.take(if (feiertag != null || ferien != null) 1 else 2).forEach { eintrag ->
                                     val tagFarbe = when {
                                         farbenMap.containsKey(eintrag.einsatzort) -> Color(farbenMap[eintrag.einsatzort]!!)
                                         farbenMap.containsKey(eintrag.titel) -> Color(farbenMap[eintrag.titel]!!)
@@ -241,7 +259,7 @@ fun KlassischerMonatsKalender(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(top = 2.dp)
-                                            .background(tagFarbe.copy(alpha = 0.22f), RoundedCornerShape(3.dp))
+                                            .background(tagFarbe.copy(alpha = 0.24f), RoundedCornerShape(3.dp))
                                             .padding(horizontal = 3.dp, vertical = 1.dp)
                                     ) {
                                         Text(
@@ -301,6 +319,7 @@ fun KlassischerMonatsKalender(
                         Text(
                             text = listOfNotNull(tagFeiertag, tagFerien).joinToString(" • "),
                             style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.tertiary
                         )
                     }
