@@ -37,6 +37,7 @@ fun HamburgerMenuInhalt(
     istKalenderAnsicht: Boolean,
     aktuellerMonatName: String,
     aktuellerStundenlohn: Double,
+    steuerklasse: Int = 1,
     monatsFahrtkosten: Double,
     anzahlFotosGesamt: Int,
     anzahlLogs: Int,
@@ -52,14 +53,12 @@ fun HamburgerMenuInhalt(
     onVomGeraetLaden: () -> Unit,
     onFehlerLogOeffnen: () -> Unit
 ) {
-    val formatierterLohn = String.format(Locale.GERMAN, "%.2f €/Std.", aktuellerStundenlohn)
+val formatierterLohn = String.format(Locale.GERMAN, "%.2f € • StKl. %d", aktuellerStundenlohn, steuerklasse)
     val formatierteFahrtkosten = String.format(Locale.GERMAN, "%.2f €", monatsFahrtkosten)
 
     ModalDrawerSheet {
         Column(
-            modifier = Modifier
-                .padding(horizontal = 12.dp)
-                .verticalScroll(rememberScrollState())
+            modifier = Modifier.padding(horizontal = 12.dp).verticalScroll(rememberScrollState())
         ) {
             Spacer(modifier = Modifier.height(16.dp))
             Text(
@@ -69,7 +68,7 @@ fun HamburgerMenuInhalt(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
             HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
-// --- START TEIL 2 (HamburgerMenu.kt) ---
+
             Text(
                 text = "Ansicht, Suche & Fotos",
                 style = MaterialTheme.typography.labelMedium,
@@ -77,13 +76,9 @@ fun HamburgerMenuInhalt(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
             )
             NavigationDrawerItem(
-                label = {
-                    Text(if (istKalenderAnsicht) "Zur Listenansicht wechseln" else "Zur Kalenderansicht wechseln")
-                },
+                label = { Text(if (istKalenderAnsicht) "Zur Listenansicht wechseln" else "Zur Kalenderansicht wechseln") },
                 selected = false,
-                icon = {
-                    Icon(if (istKalenderAnsicht) Icons.Default.ViewList else Icons.Default.CalendarMonth, contentDescription = null)
-                },
+                icon = { Icon(if (istKalenderAnsicht) Icons.Default.ViewList else Icons.Default.CalendarMonth, contentDescription = null) },
                 onClick = onAnsichtWechseln
             )
             NavigationDrawerItem(
@@ -102,13 +97,13 @@ fun HamburgerMenuInhalt(
             HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
 
             Text(
-                text = "Gehalt, Fahrtkosten & Ferien",
+                text = "Brutto-Netto, Fahrtkosten & Ferien",
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
             )
             NavigationDrawerItem(
-                label = { Text("Stundenlohn & Gehalt ($formatierterLohn)") },
+                label = { Text("Brutto-Netto & Lohn ($formatierterLohn)") },
                 selected = false,
                 icon = { Icon(Icons.Default.Edit, contentDescription = null) },
                 onClick = onStundenlohnOeffnen
@@ -131,8 +126,7 @@ fun HamburgerMenuInhalt(
                 icon = { Icon(Icons.Default.Palette, contentDescription = null) },
                 onClick = onEinstellungenOeffnen
             )
-// --- START TEIL 3 (HamburgerMenu.kt) ---
-            HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
+HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
 
             Text(
                 text = "Dienstplan & Aufräumen",
