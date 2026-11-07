@@ -200,11 +200,7 @@ fun EinstellungenDialog(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    val zeitText = if (eintrag.start == eintrag.ende) {
-                                        eintrag.start.format(datumsFormat)
-                                    } else {
-                                        "${eintrag.start.format(datumsFormat)} – ${eintrag.ende.format(datumsFormat)}"
-                                    }
+                                    val zeitText = if (eintrag.start == eintrag.ende) eintrag.start.format(datumsFormat) else "${eintrag.start.format(datumsFormat)} – ${eintrag.ende.format(datumsFormat)}"
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(eintrag.name, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
                                         Text(zeitText, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -218,44 +214,52 @@ fun EinstellungenDialog(
                     }
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text("Jahresübersicht $vorschauJahr", style = MaterialTheme.typography.titleSmall)
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             TextButton(onClick = { vorschauJahr-- }) { Text("${vorschauJahr - 1}") }
                             TextButton(onClick = { vorschauJahr++ }) { Text("${vorschauJahr + 1}") }
                         }
                     }
-
-                    Text("Schulferien & freie Tage ($vorschauJahr):", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     NrwDatenHelfer.holeFerienFuerJahr(vorschauJahr).forEach { f ->
                         val z = if (f.start == f.ende) f.start.format(datumsFormat) else "${f.start.format(datumsFormat)} – ${f.ende.format(datumsFormat)}"
                         Text("• ${f.name}: $z", style = MaterialTheme.typography.bodySmall)
                     }
-
-                    Text("Gesetzliche Feiertage NRW ($vorschauJahr):", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp))
-                    NrwDatenHelfer.holeAlleFeiertageFuerJahr(vorschauJahr).forEach { (tag, name) ->
-                        Text("• ${tag.format(datumsFormat)}: $name", style = MaterialTheme.typography.bodySmall)
-                    }
                 } else {
-                    Text("Farbcodierung für Einsatzorte", style = MaterialTheme.typography.titleSmall)
+                    val alleFarbOptionen = listOf(
+                        0xFF1E88E5L, 0xFF00ACC1L, 0xFF43A047L, 0xFF7CB342L,
+                        0xFFFDD835L, 0xFFFB8C00L, 0xFFE53935L, 0xFFD81B60L,
+                        0xFF8E24AAL, 0xFF5E35B1L, 0xFF546E7AL, 0xFF6D4C41L
+                    )
+                    Text("Optionale Farben für ALLES (Märkte, Frei, Urlaub, Termine)", style = MaterialTheme.typography.titleSmall)
+                    Text("Tippe auf einen Schnellbegriff oder gib einen eigenen Namen ein:", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("Frei", "Urlaub", "Krank", "Termin", "SCHICHT").forEach { vorschlag ->
+                            FilterChip(selected = neuerOrt == vorschlag, onClick = { neuerOrt = vorschlag }, label = { Text(vorschlag) })
+                        }
+                    }
+
                     OutlinedTextField(
                         value = neuerOrt,
                         onValueChange = { neuerOrt = it },
-                        label = { Text("Einsatzort (z. B. Bielefeld, Loom)") },
+                        label = { Text("Begriff / Ort / Typ (z. B. Bielefeld, Loom oder Frei)") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        farbPalette.forEach { farbHex ->
+                        alleFarbOptionen.take(6).forEach { farbHex ->
                             Box(
-                                modifier = Modifier
-                                    .size(30.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(farbHex))
+                                modifier = Modifier.size(28.dp).clip(CircleShape).background(Color(farbHex))
+                                    .border(if (gewaehlteFarbe == farbHex) 3.dp else 0.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
+                                    .clickable { gewaehlteFarbe = farbHex }
+                            )
+                        }
+                    }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                        alleFarbOptionen.drop(6).forEach { farbHex ->
+                            Box(
+                                modifier = Modifier.size(28.dp).clip(CircleShape).background(Color(farbHex))
                                     .border(if (gewaehlteFarbe == farbHex) 3.dp else 0.dp, MaterialTheme.colorScheme.onSurface, CircleShape)
                                     .clickable { gewaehlteFarbe = farbHex }
                             )
@@ -269,18 +273,12 @@ fun EinstellungenDialog(
                             }
                         },
                         modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Einsatzort-Farbe speichern")
-                    }
+                    ) { Text("Farbe speichern (optional)") }
 
                     gespeicherteFarben.forEach { eintrag ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(Color(eintrag.farbHex)))
+                                Box(modifier = Modifier.size(14.dp).clip(CircleShape).background(Color(eintrag.farbHex)))
                                 Text("  ${eintrag.einsatzort}", style = MaterialTheme.typography.bodyMedium)
                             }
                             IconButton(onClick = { onFarbeLoeschen(eintrag) }) {
@@ -292,28 +290,13 @@ fun EinstellungenDialog(
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Text("Cloud-Backup (Google Drive API)", style = MaterialTheme.typography.titleSmall)
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
-                            onClick = {
-                                coroutineScope.launch {
-                                    Toast.makeText(context, CloudBackupHelfer.datenbankSichern(context), Toast.LENGTH_LONG).show()
-                                }
-                            },
-                            modifier = Modifier.weight(1f)
-                        ) { Text("Sichern") }
-                        OutlinedButton(
-                            onClick = {
-                                coroutineScope.launch {
-                                    Toast.makeText(context, CloudBackupHelfer.datenbankWiederherstellen(context), Toast.LENGTH_LONG).show()
-                                }
-                            },
-                            modifier = Modifier.weight(1f)
-                        ) { Text("Laden") }
+                        Button(onClick = { coroutineScope.launch { Toast.makeText(context, CloudBackupHelfer.datenbankSichern(context), Toast.LENGTH_LONG).show() } }, modifier = Modifier.weight(1f)) { Text("Sichern") }
+                        OutlinedButton(onClick = { coroutineScope.launch { Toast.makeText(context, CloudBackupHelfer.datenbankWiederherstellen(context), Toast.LENGTH_LONG).show() } }, modifier = Modifier.weight(1f)) { Text("Laden") }
                     }
                 }
             }
         },
-        confirmButton = {
-            TextButton(onClick = onSchliessen) { Text("Fertig") }
-        }
+        confirmButton = { TextButton(onClick = onSchliessen) { Text("Fertig") } }
     )
 }
+// --- ENDE TEIL 3 (EinstellungenDialog.kt) ---
