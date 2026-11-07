@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Palette
@@ -59,12 +60,14 @@ fun HamburgerMenuInhalt(
     monatsFahrtkosten: Double,
     anzahlFotosGesamt: Int,
     anzahlLogs: Int,
+    appVersion: String = "v2.4.0",
     onAnsichtWechseln: () -> Unit,
     onSucheOeffnen: () -> Unit,
     onFotoGalerieOeffnen: () -> Unit,
     onStundenlohnOeffnen: () -> Unit,
     onFahrtkostenOeffnen: () -> Unit,
     onEinstellungenOeffnen: () -> Unit,
+    onVersionOeffnen: () -> Unit = {},
     onPdfImport: () -> Unit,
     onMonatLeeren: () -> Unit,
     onAufGeraetSpeichern: () -> Unit,
@@ -72,8 +75,8 @@ fun HamburgerMenuInhalt(
     onFehlerLogOeffnen: () -> Unit
 ) {
     var systemOffen by remember { mutableStateOf(false) }
-    val lohnSub = String.format(Locale.GERMAN, "%.2f €/Std. • Steuerklasse %d", aktuellerStundenlohn, steuerklasse)
-    val fahrtSub = String.format(Locale.GERMAN, "Monatssumme: %.2f €", monatsFahrtkosten)
+    val lohnSub = String.format(Locale.GERMAN, "Aktiv: %.2f €/Std. • StKl. %d (Tarife & Zeiträume)", aktuellerStundenlohn, steuerklasse)
+    val fahrtSub = String.format(Locale.GERMAN, "Monat: %.2f € (Standorte & Zeiträume)", monatsFahrtkosten)
 
     ModalDrawerSheet {
         Column(
@@ -88,11 +91,10 @@ fun HamburgerMenuInhalt(
             ) {
                 Column {
                     Text("Dienstplan", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Text(aktuellerMonatName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    Text("$aktuellerMonatName • $appVersion", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                 }
             }
 
-            // 2x2 SCHNELLZUGRIFF-KACHELN OBEN
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SchnellKachel(Modifier.weight(1f), Icons.Default.PictureAsPdf, "PDF-Import", true, onPdfImport)
                 SchnellKachel(
@@ -105,31 +107,30 @@ fun HamburgerMenuInhalt(
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SchnellKachel(Modifier.weight(1f), Icons.Default.Search, "Suche", false, onSucheOeffnen)
-                SchnellKachel(Modifier.weight(1f), Icons.Default.Image, "Fotos ($anzahlFotosGesamt)", false, onFotoGalerieOeffnen)
+                SchnellKachel(Modifier.weight(1f), Icons.Default.Image, "HD-Fotos ($anzahlFotosGesamt)", false, onFotoGalerieOeffnen)
             }
 
-            // KARTE 1: FINANZEN & RECHNER
-            Text("Finanzen & Rechner", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
+            Text("Tarife, Finanzen & Fahrtkosten", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
             Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f), modifier = Modifier.fillMaxWidth()) {
                 Column {
-                    MenueZeile(Icons.Default.Edit, "Brutto-Netto & Stundenlohn", lohnSub, onClick = onStundenlohnOeffnen)
+                    MenueZeile(Icons.Default.Edit, "Tarif-Stundenlöhne & Netto", lohnSub, onClick = onStundenlohnOeffnen)
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                    MenueZeile(Icons.Default.Place, "Fahrtkosten & Standorte", fahrtSub, onClick = onFahrtkostenOeffnen)
+                    MenueZeile(Icons.Default.Place, "Kilometer & Standorte", fahrtSub, onClick = onFahrtkostenOeffnen)
                 }
             }
 // --- ENDE BLOCK 2 VON 3 (HamburgerMenu.kt) ---
 // --- START BLOCK 3 VON 3 (HamburgerMenu.kt) ---
-            // KARTE 2: KALENDER & DARSTELLUNG
-            Text("Kalender & Darstellung", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 4.dp, top = 2.dp))
+            Text("Kalender, Farben & App-Info", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 4.dp, top = 2.dp))
             Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f), modifier = Modifier.fillMaxWidth()) {
                 Column {
                     MenueZeile(Icons.Default.Event, "Feiertage & Schulferien", "NRW-Daten, Online-API & eigene Tage", onClick = onEinstellungenOeffnen)
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-                    MenueZeile(Icons.Default.Palette, "Einsatzort-Farben & Cloud", "Farbcodierung für Märkte verwalten", onClick = onEinstellungenOeffnen)
+                    MenueZeile(Icons.Default.Palette, "Farben für alles & Cloud", "Farben für Märkte, Frei, Urlaub & Termine", onClick = onEinstellungenOeffnen)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    MenueZeile(Icons.Default.Info, "App-Version & Neuigkeiten ($appVersion)", "Was die App kann & Update-Verlauf", onClick = onVersionOeffnen)
                 }
             }
 
-            // KARTE 3: SYSTEM, BACKUP & AUFRÄUMEN (AUSKLAPPBAR)
             Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), modifier = Modifier.fillMaxWidth()) {
                 Column {
                     Row(
