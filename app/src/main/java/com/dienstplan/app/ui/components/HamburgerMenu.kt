@@ -9,7 +9,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BugReport
@@ -31,15 +34,17 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.util.Locale
@@ -66,61 +71,84 @@ fun HamburgerMenuInhalt(
     onVomGeraetLaden: () -> Unit,
     onFehlerLogOeffnen: () -> Unit
 ) {
-    var offenesUntermenue by remember { mutableIntStateOf(1) }
-    val lohnInfo = String.format(Locale.GERMAN, "%.2f € • StKl. %d", aktuellerStundenlohn, steuerklasse)
-    val fahrtInfo = String.format(Locale.GERMAN, "%.2f €", monatsFahrtkosten)
+    var systemOffen by remember { mutableStateOf(false) }
+    val lohnSub = String.format(Locale.GERMAN, "%.2f €/Std. • Steuerklasse %d", aktuellerStundenlohn, steuerklasse)
+    val fahrtSub = String.format(Locale.GERMAN, "Monatssumme: %.2f €", monatsFahrtkosten)
 
     ModalDrawerSheet {
-        Column(modifier = Modifier.padding(horizontal = 12.dp).verticalScroll(rememberScrollState())) {
-            Spacer(modifier = Modifier.height(16.dp))
-            Text("Dienstplan-Menü", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("Dienstplan", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(aktuellerMonatName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                }
+            }
 
-            UntermenueKopf("1. Ansicht, Suche & Fotos", offenesUntermenue == 1) { offenesUntermenue = if (offenesUntermenue == 1) 0 else 1 }
-            if (offenesUntermenue == 1) {
-                NavigationDrawerItem(
-                    label = { Text(if (istKalenderAnsicht) "Zur Listenansicht wechseln" else "Zur Kalenderansicht wechseln") },
-                    selected = false,
-                    icon = { Icon(if (istKalenderAnsicht) Icons.Default.ViewList else Icons.Default.CalendarMonth, null) },
-                    onClick = onAnsichtWechseln
+            // 2x2 SCHNELLZUGRIFF-KACHELN OBEN
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SchnellKachel(Modifier.weight(1f), Icons.Default.PictureAsPdf, "PDF-Import", true, onPdfImport)
+                SchnellKachel(
+                    Modifier.weight(1f),
+                    if (istKalenderAnsicht) Icons.Default.ViewList else Icons.Default.CalendarMonth,
+                    if (istKalenderAnsicht) "Listenansicht" else "Kalender",
+                    false,
+                    onAnsichtWechseln
                 )
-                NavigationDrawerItem(label = { Text("Suchen im Kalender") }, selected = false, icon = { Icon(Icons.Default.Search, null) }, onClick = onSucheOeffnen)
-                NavigationDrawerItem(label = { Text("Alle Tages-Fotos ($anzahlFotosGesamt)") }, selected = false, icon = { Icon(Icons.Default.Image, null) }, onClick = onFotoGalerieOeffnen)
             }
-            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SchnellKachel(Modifier.weight(1f), Icons.Default.Search, "Suche", false, onSucheOeffnen)
+                SchnellKachel(Modifier.weight(1f), Icons.Default.Image, "Fotos ($anzahlFotosGesamt)", false, onFotoGalerieOeffnen)
+            }
 
-            UntermenueKopf("2. Lohn, Netto & Fahrtkosten", offenesUntermenue == 2) { offenesUntermenue = if (offenesUntermenue == 2) 0 else 2 }
-            if (offenesUntermenue == 2) {
-                NavigationDrawerItem(label = { Text("Brutto-Netto & Lohn ($lohnInfo)") }, selected = false, icon = { Icon(Icons.Default.Edit, null) }, onClick = onStundenlohnOeffnen)
-                NavigationDrawerItem(label = { Text("Fahrtkosten & Standorte ($fahrtInfo)") }, selected = false, icon = { Icon(Icons.Default.Place, null) }, onClick = onFahrtkostenOeffnen)
+            // KARTE 1: FINANZEN & RECHNER
+            Text("Finanzen & Rechner", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 4.dp, top = 4.dp))
+            Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f), modifier = Modifier.fillMaxWidth()) {
+                Column {
+                    MenueZeile(Icons.Default.Edit, "Brutto-Netto & Stundenlohn", lohnSub, onClick = onStundenlohnOeffnen)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    MenueZeile(Icons.Default.Place, "Fahrtkosten & Standorte", fahrtSub, onClick = onFahrtkostenOeffnen)
+                }
             }
-            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 // --- ENDE BLOCK 2 VON 3 (HamburgerMenu.kt) ---
 // --- START BLOCK 3 VON 3 (HamburgerMenu.kt) ---
-            UntermenueKopf("3. Ferien, Feiertage & Farben", offenesUntermenue == 3) { offenesUntermenue = if (offenesUntermenue == 3) 0 else 3 }
-            if (offenesUntermenue == 3) {
-                NavigationDrawerItem(label = { Text("Feiertage & Schulferien (NRW)") }, selected = false, icon = { Icon(Icons.Default.Event, null) }, onClick = onEinstellungenOeffnen)
-                NavigationDrawerItem(label = { Text("Orts-Farben & Cloud-Sync") }, selected = false, icon = { Icon(Icons.Default.Palette, null) }, onClick = onEinstellungenOeffnen)
+            // KARTE 2: KALENDER & DARSTELLUNG
+            Text("Kalender & Darstellung", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(start = 4.dp, top = 2.dp))
+            Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f), modifier = Modifier.fillMaxWidth()) {
+                Column {
+                    MenueZeile(Icons.Default.Event, "Feiertage & Schulferien", "NRW-Daten, Online-API & eigene Tage", onClick = onEinstellungenOeffnen)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    MenueZeile(Icons.Default.Palette, "Einsatzort-Farben & Cloud", "Farbcodierung für Märkte verwalten", onClick = onEinstellungenOeffnen)
+                }
             }
-            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
-            UntermenueKopf("4. Dienstplan-Import & Aufräumen", offenesUntermenue == 4) { offenesUntermenue = if (offenesUntermenue == 4) 0 else 4 }
-            if (offenesUntermenue == 4) {
-                NavigationDrawerItem(label = { Text("PDF-Dienstplan einlesen") }, selected = false, icon = { Icon(Icons.Default.PictureAsPdf, null) }, onClick = onPdfImport)
-                NavigationDrawerItem(
-                    label = { Text("Monat leeren ($aktuellerMonatName)") },
-                    selected = false,
-                    icon = { Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error) },
-                    onClick = onMonatLeeren
-                )
-            }
-            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-
-            UntermenueKopf("5. Backup & System-Diagnose", offenesUntermenue == 5) { offenesUntermenue = if (offenesUntermenue == 5) 0 else 5 }
-            if (offenesUntermenue == 5) {
-                NavigationDrawerItem(label = { Text("Backup speichern (.db)") }, selected = false, icon = { Icon(Icons.Default.Save, null) }, onClick = onAufGeraetSpeichern)
-                NavigationDrawerItem(label = { Text("Backup laden (.db)") }, selected = false, icon = { Icon(Icons.Default.Download, null) }, onClick = onVomGeraetLaden)
-                NavigationDrawerItem(label = { Text("Diagnose-Log ($anzahlLogs)") }, selected = false, icon = { Icon(Icons.Default.BugReport, null) }, onClick = onFehlerLogOeffnen)
+            // KARTE 3: SYSTEM, BACKUP & AUFRÄUMEN (AUSKLAPPBAR)
+            Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f), modifier = Modifier.fillMaxWidth()) {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { systemOffen = !systemOffen }.padding(horizontal = 14.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("System, Backup & Aufräumen", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                        Icon(if (systemOffen) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = null)
+                    }
+                    if (systemOffen) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                        MenueZeile(Icons.Default.Save, "Backup speichern (.db)", "Datenbank lokal sichern", onClick = onAufGeraetSpeichern)
+                        MenueZeile(Icons.Default.Download, "Backup laden (.db)", "Sicherung wiederherstellen", onClick = onVomGeraetLaden)
+                        MenueZeile(Icons.Default.BugReport, "Diagnose-Log ($anzahlLogs)", "Protokoll für Fehlersuche", onClick = onFehlerLogOeffnen)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                        MenueZeile(Icons.Default.Delete, "Monat leeren ($aktuellerMonatName)", "Alle Einträge im Monat löschen", MaterialTheme.colorScheme.error, onMonatLeeren)
+                    }
+                }
             }
             Spacer(modifier = Modifier.height(16.dp))
         }
@@ -128,14 +156,30 @@ fun HamburgerMenuInhalt(
 }
 
 @Composable
-private fun UntermenueKopf(titel: String, istOffen: Boolean, onKlick: () -> Unit) {
+private fun SchnellKachel(modifier: Modifier, icon: ImageVector, titel: String, hervorgehoben: Boolean, onClick: () -> Unit) {
+    val bg = if (hervorgehoben) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+    val fg = if (hervorgehoben) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+    Surface(shape = RoundedCornerShape(12.dp), color = bg, modifier = modifier.clickable { onClick() }) {
+        Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, contentDescription = null, tint = fg, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(titel, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = fg, maxLines = 1)
+        }
+    }
+}
+
+@Composable
+private fun MenueZeile(icon: ImageVector, titel: String, untertitel: String, farbe: Color = MaterialTheme.colorScheme.onSurface, onClick: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable { onKlick() }.padding(horizontal = 16.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier.fillMaxWidth().clickable { onClick() }.padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = titel, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
-        Icon(imageVector = if (istOffen) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+        Icon(icon, contentDescription = null, tint = if (farbe == MaterialTheme.colorScheme.error) farbe else MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(titel, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = farbe)
+            Text(untertitel, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 // --- ENDE BLOCK 3 VON 3 (HamburgerMenu.kt) ---
