@@ -1,3 +1,4 @@
+// --- START BLOCK 1 VON 6 (MainActivity.kt) ---
 package com.dienstplan.app
 
 import android.content.Context
@@ -27,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
@@ -85,56 +87,82 @@ import java.io.File
 import java.io.FileOutputStream
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.math.max
+import kotlin.math.roundToInt
+// --- ENDE BLOCK 1 VON 6 (MainActivity.kt) ---
+// --- START BLOCK 2 VON 6 (MainActivity.kt) ---
 private fun DienstplanViewModel.monatWechseln(offset: Int) { this.monatWechseln(offset.toLong()) }
 private fun DienstplanViewModel.monatWechseln(offset: Long) { this.monatWechseln(offset.toInt()) }
 
 data class NettoErgebnis(
     val brutto: Double,
-    val sozialabgaben: Double,
-    val steuern: Double,
+    val lohnsteuer: Double,
+    val kirchensteuer: Double,
+    val rv: Double,
+    val av: Double,
+    val kv: Double,
+    val pv: Double,
+    val abgabenGesamt: Double,
     val netto: Double,
     val fahrtkosten: Double,
     val auszahlung: Double
 )
 
+private fun rundeCent(wert: Double): Double = (wert * 100.0).roundToInt() / 100.0
+
+private fun berechneTarifESt2026(zvE: Double): Double {
+    val x = floor(zvE)
+    return when {
+        x <= 12348.0 -> 0.0
+        x <= 17799.0 -> { val y = (x - 12348.0) / 10000.0; floor((914.51 * y + 1400.0) * y) }
+        x <= 69878.0 -> { val z = (x - 17799.0) / 10000.0; floor((173.10 * z + 2397.0) * z + 1034.87) }
+        x <= 277825.0 -> floor(0.42 * x - 11135.63)
+        else -> floor(0.45 * x - 19470.38)
+    }
+}
+
 fun berechneNetto2026(
     brutto: Double,
     steuerklasse: Int,
     kvZusatzProzent: Double,
-    kirchensteuer: Boolean,
-    hatKinder: Boolean,
+    kirchensteuerAktiv: Boolean,
+    kinderUnter25: Int,
     fahrtkosten: Double
 ): NettoErgebnis {
-    if (brutto <= 0.0) return NettoErgebnis(0.0, 0.0, 0.0, 0.0, fahrtkosten, fahrtkosten)
-    val rv = 0.093
-    val av = 0.013
-    val kv = 0.073 + (kvZusatzProzent / 100.0 / 2.0)
-    val pv = if (hatKinder) 0.018 else 0.024
-    val sozial = brutto * (rv + av + kv + pv)
+    if (brutto <= 0.0) return NettoErgebnis(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, fahrtkosten, fahrtkosten)
+    val rv = rundeCent(brutto * 0.093)
+    val av = rundeCent(brutto * 0.013)
+    val kvSatz = 0.073 + (kvZusatzProzent / 100.0 / 2.0)
+    val kv = rundeCent(brutto * kvSatz)
+    val pvSatz = when {
+        kinderUnter25 <= 0 -> 0.024
+        kinderUnter25 == 1 -> 0.018
+        else -> max(0.008, 0.018 - (minOf(kinderUnter25, 5) - 1) * 0.0025)
+    }
+    val pv = rundeCent(brutto * pvSatz)
 
     val jahresBrutto = brutto * 12.0
-    val vorsorge = sozial * 12.0 * 0.88
-    val freibetrag = when (steuerklasse) {
-        1, 4 -> 12348.0
-        2 -> 16608.0
-        3 -> 24696.0
-        else -> 0.0
+    val vspRv = jahresBrutto * 0.093
+    val vspKvPv = jahresBrutto * (0.07 + (kvZusatzProzent / 100.0 / 2.0) + pvSatz)
+    val vorsorge = ceil(vspRv + vspKvPv)
+    val pauschbetraege = when (steuerklasse) {
+        2 -> 1230.0 + 36.0 + 4260.0
+        3 -> 1230.0 + 72.0
+        5, 6 -> 0.0
+        else -> 1230.0 + 36.0
     }
-    val zvE = max(0.0, jahresBrutto - 1266.0 - vorsorge - freibetrag)
-    val jahresSteuer = when {
-        zvE <= 0.0 -> 0.0
-        zvE <= 17000.0 -> zvE * (0.14 + (zvE / 17000.0) * 0.09)
-        zvE <= 66760.0 -> (17000.0 * 0.23) + (zvE - 17000.0) * 0.30
-        else -> (17000.0 * 0.23) + (49760.0 * 0.30) + (zvE - 66760.0) * 0.42
-    }
-    val lohnsteuer = jahresSteuer / 12.0
-    val kirche = if (kirchensteuer) lohnsteuer * 0.09 else 0.0
-    val steuernGesamt = lohnsteuer + kirche
-    val netto = max(0.0, brutto - sozial - steuernGesamt)
-    return NettoErgebnis(brutto, sozial, steuernGesamt, netto, fahrtkosten, netto + fahrtkosten)
+    val zvE = max(0.0, floor(jahresBrutto - pauschbetraege - vorsorge))
+    val jahresSteuer = if (steuerklasse == 3) 2.0 * berechneTarifESt2026(zvE / 2.0) else berechneTarifESt2026(zvE)
+    val lohnsteuer = rundeCent(jahresSteuer / 12.0)
+    val kirche = if (kirchensteuerAktiv) rundeCent(lohnsteuer * 0.09) else 0.0
+    val abgaben = rundeCent(lohnsteuer + kirche + rv + av + kv + pv)
+    val netto = max(0.0, rundeCent(brutto - abgaben))
+    return NettoErgebnis(brutto, lohnsteuer, kirche, rv, av, kv, pv, abgaben, netto, fahrtkosten, rundeCent(netto + fahrtkosten))
 }
-
+// --- ENDE BLOCK 2 VON 6 (MainActivity.kt) ---
+// --- START BLOCK 3 VON 6 (MainActivity.kt) ---
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -142,6 +170,7 @@ class MainActivity : ComponentActivity() {
         setContent { DienstplanTheme { DienstplanHauptbildschirm() } }
     }
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DienstplanHauptbildschirm(viewModel: DienstplanViewModel = viewModel()) {
@@ -173,14 +202,13 @@ fun DienstplanHauptbildschirm(viewModel: DienstplanViewModel = viewModel()) {
     var aktuellerStundenlohn by remember { mutableDoubleStateOf(prefs.getFloat("global_stundenlohn", 15.75f).toDouble()) }
     var lohnGlobalErzwingen by remember { mutableStateOf(prefs.getBoolean("lohn_erzwingen", true)) }
     var steuerklasse by remember { mutableIntStateOf(prefs.getInt("steuerklasse", 1)) }
-    var kvZusatz by remember { mutableDoubleStateOf(prefs.getFloat("kv_zusatz", 1.7f).toDouble()) }
+    var kvZusatz by remember { mutableDoubleStateOf(prefs.getFloat("kv_zusatz", 3.20f).toDouble()) }
     var kirchensteuer by remember { mutableStateOf(prefs.getBoolean("kirchensteuer", false)) }
-    var hatKinder by remember { mutableStateOf(prefs.getBoolean("hat_kinder", true)) }
+    var kinderUnter25 by remember { mutableIntStateOf(prefs.getInt("kinder_anzahl", 2)) }
 
     var kmPauschale by remember { mutableDoubleStateOf(prefs.getFloat("km_pauschale", 0.30f).toDouble()) }
     var hinUndRueckfahrt by remember { mutableStateOf(prefs.getBoolean("hin_rueck", true)) }
 
-    // WICHTIG: Wendet den gespeicherten Stundenlohn sofort auf alle Schichten an!
     val alleEintraege = remember(alleEintraegeRoh, aktuellerStundenlohn, lohnGlobalErzwingen) {
         if (lohnGlobalErzwingen) {
             alleEintraegeRoh.map { if (it.typ == "SCHICHT") it.copy(stundenlohn = aktuellerStundenlohn) else it }
@@ -197,7 +225,9 @@ fun DienstplanHauptbildschirm(viewModel: DienstplanViewModel = viewModel()) {
             prefs.all.forEach { (k, v) -> if (k.startsWith("km_") && v is Float && v > 0f) put(k.removePrefix("km_"), v.toDouble()) }
         }
     }
-val fotosOrdner = remember { File(context.filesDir, "tages_fotos").apply { if (!exists()) mkdirs() } }
+// --- ENDE BLOCK 3 VON 6 (MainActivity.kt) ---
+// --- START BLOCK 4 VON 6 (MainActivity.kt) ---
+    val fotosOrdner = remember { File(context.filesDir, "tages_fotos").apply { if (!exists()) mkdirs() } }
     val alleFotos = remember(fotoAktualisierungsZaehler) {
         fotosOrdner.listFiles()?.filter { it.isFile }?.sortedByDescending { it.name } ?: emptyList()
     }
@@ -230,7 +260,7 @@ val fotosOrdner = remember { File(context.filesDir, "tages_fotos").apply { if (!
             val liste = PdfImportHelfer.pdfEinlesen(context, uri, aktuellerMonat.toString())
                 .map { if (it.typ == "SCHICHT") it.copy(stundenlohn = aktuellerStundenlohn) else it }
             if (liste.isNotEmpty()) viewModel.mehrereEintraegeSpeichern(liste)
-            Toast.makeText(context, "${liste.size} Schicht(en) mit ${String.format(Locale.GERMAN, "%.2f", aktuellerStundenlohn)} €/Std. importiert", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "${liste.size} Schicht(en) importiert", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -252,10 +282,12 @@ val fotosOrdner = remember { File(context.filesDir, "tages_fotos").apply { if (!
         }
     }
     val monatsBrutto = remember(monatsEintraege) { monatsEintraege.filter { it.typ == "SCHICHT" }.sumOf { it.berechneVerdienst() } }
-    val nettoDaten = remember(monatsBrutto, steuerklasse, kvZusatz, kirchensteuer, hatKinder, monatsFahrtkosten) {
-        berechneNetto2026(monatsBrutto, steuerklasse, kvZusatz, kirchensteuer, hatKinder, monatsFahrtkosten)
+    val nettoDaten = remember(monatsBrutto, steuerklasse, kvZusatz, kirchensteuer, kinderUnter25, monatsFahrtkosten) {
+        berechneNetto2026(monatsBrutto, steuerklasse, kvZusatz, kirchensteuer, kinderUnter25, monatsFahrtkosten)
     }
-ModalNavigationDrawer(
+// --- ENDE BLOCK 4 VON 6 (MainActivity.kt) ---
+// --- START BLOCK 5 VON 6 (MainActivity.kt) ---
+    ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
             HamburgerMenuInhalt(
@@ -296,7 +328,6 @@ ModalNavigationDrawer(
             Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
                 MonatsUndGehaltsLeiste(aktuellerMonat, monatsEintraege) { viewModel.monatWechseln(it) }
 
-                // LIVE BRUTTO-NETTO-LEISTE UNTER DER MONATSLEISTE (Antippbar)
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
                     modifier = Modifier.fillMaxWidth().clickable { zeigeStundenlohnDialog = true }
@@ -307,7 +338,7 @@ ModalNavigationDrawer(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = String.format(Locale.GERMAN, "Netto (StKl. %d): ~%.2f €", steuerklasse, nettoDaten.netto),
+                            text = String.format(Locale.GERMAN, "Netto (StKl. %d): %.2f €", steuerklasse, nettoDaten.netto),
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -345,7 +376,9 @@ ModalNavigationDrawer(
             }
         }
     }
-if (dialogDatum != null) {
+// --- ENDE BLOCK 5 VON 6 (MainActivity.kt) ---
+// --- START BLOCK 6 VON 6 (MainActivity.kt) ---
+    if (dialogDatum != null) {
         val dStr = dialogDatum!!
         EintragDialog(
             initialDatum = dStr,
@@ -378,7 +411,7 @@ if (dialogDatum != null) {
         var kvInput by remember { mutableStateOf(String.format(Locale.GERMAN, "%.2f", kvZusatz)) }
         var klWahl by remember { mutableIntStateOf(steuerklasse) }
         var kircheWahl by remember { mutableStateOf(kirchensteuer) }
-        var kinderWahl by remember { mutableStateOf(hatKinder) }
+        var kinderWahl by remember { mutableIntStateOf(kinderUnter25) }
         var erzwingenWahl by remember { mutableStateOf(lohnGlobalErzwingen) }
 
         val vLohn = lohnInput.replace(",", ".").toDoubleOrNull() ?: aktuellerStundenlohn
@@ -388,54 +421,55 @@ if (dialogDatum != null) {
 
         AlertDialog(
             onDismissRequest = { zeigeStundenlohnDialog = false },
-            title = { Text("Brutto-Netto-Rechner & Lohn") },
+            title = { Text("Brutto-Netto-Rechner 2026") },
             text = {
                 Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(value = lohnInput, onValueChange = { lohnInput = it }, label = { Text("Stundenlohn Brutto (€/Std.)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.fillMaxWidth())
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = erzwingenWahl, onCheckedChange = { erzwingenWahl = it })
-                        Text("Stundenlohn für alle Schichten übernehmen", style = MaterialTheme.typography.bodySmall)
+                        Text("Für alle Schichten übernehmen", style = MaterialTheme.typography.bodySmall)
                     }
                     Text("Steuerklasse:", style = MaterialTheme.typography.labelMedium)
                     Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         (1..6).forEach { kl -> FilterChip(selected = klWahl == kl, onClick = { klWahl = kl }, label = { Text("Kl. $kl") }) }
                     }
-                    Text("Krankenkasse (Zusatzbeitrag %):", style = MaterialTheme.typography.labelMedium)
+                    Text("Kinder unter 25 (Pflegevers.-Rabatt):", style = MaterialTheme.typography.labelMedium)
                     Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf("TK" to "1.20", "AOK NW" to "1.89", "Barmer" to "2.19", "DAK" to "1.70", "IKK" to "1.70").forEach { (kasse, satz) ->
+                        (0..5).forEach { k -> FilterChip(selected = kinderWahl == k, onClick = { kinderWahl = k }, label = { Text(if (k == 0) "Keine" else "$k Kind(er)") }) }
+                    }
+                    Text("Krankenkasse (Zusatzbeitrag 2026):", style = MaterialTheme.typography.labelMedium)
+                    Row(modifier = Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf("DAK" to "3.20", "TK" to "2.45", "AOK NW" to "2.99", "Barmer" to "3.29", "IKK" to "3.10").forEach { (kasse, satz) ->
                             FilterChip(selected = kvInput == satz, onClick = { kvInput = satz }, label = { Text("$kasse ($satz%)") })
                         }
                     }
                     OutlinedTextField(value = kvInput, onValueChange = { kvInput = it }, label = { Text("KV-Zusatzbeitrag (%)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.fillMaxWidth())
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Kinder / Elterneigenschaft (PV)", style = MaterialTheme.typography.bodySmall)
-                        Switch(checked = kinderWahl, onCheckedChange = { kinderWahl = it })
-                    }
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Text("Kirchensteuer (9 % NRW)", style = MaterialTheme.typography.bodySmall)
                         Switch(checked = kircheWahl, onCheckedChange = { kircheWahl = it })
                     }
                     Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
                         Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(String.format(Locale.GERMAN, "Brutto (%.1f Std.): %.2f €", stdSumme, vNetto.brutto), style = MaterialTheme.typography.bodySmall)
-                            Text(String.format(Locale.GERMAN, "- Sozialabgaben: %.2f €", vNetto.sozialabgaben), style = MaterialTheme.typography.bodySmall)
-                            Text(String.format(Locale.GERMAN, "- Steuern (Kl. %d): %.2f €", klWahl, vNetto.steuern), style = MaterialTheme.typography.bodySmall)
+                            Text(String.format(Locale.GERMAN, "Brutto pro Monat: %.2f €", vNetto.brutto), fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+                            Text(String.format(Locale.GERMAN, "Lohnsteuer: -%.2f €", vNetto.lohnsteuer), style = MaterialTheme.typography.bodySmall)
+                            if (vNetto.kirchensteuer > 0) Text(String.format(Locale.GERMAN, "Kirchensteuer: -%.2f €", vNetto.kirchensteuer), style = MaterialTheme.typography.bodySmall)
+                            Text(String.format(Locale.GERMAN, "Rentenvers.: -%.2f € | Arbeitslosenv.: -%.2f €", vNetto.rv, vNetto.av), style = MaterialTheme.typography.bodySmall)
+                            Text(String.format(Locale.GERMAN, "Krankenvers.: -%.2f € | Pflegevers.: -%.2f €", vNetto.kv, vNetto.pv), style = MaterialTheme.typography.bodySmall)
+                            Text(String.format(Locale.GERMAN, "Abgaben gesamt: -%.2f €", vNetto.abgabenGesamt), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                             HorizontalDivider(modifier = Modifier.padding(vertical = 3.dp))
-                            Text(String.format(Locale.GERMAN, "Netto-Gehalt: %.2f €", vNetto.netto), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                            Text(String.format(Locale.GERMAN, "+ Fahrtkosten: %.2f €", vNetto.fahrtkosten), style = MaterialTheme.typography.bodySmall)
-                            Text(String.format(Locale.GERMAN, "= Auszahlung: %.2f €", vNetto.auszahlung), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text(String.format(Locale.GERMAN, "Netto: %.2f €", vNetto.netto), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Text(String.format(Locale.GERMAN, "+ Fahrtkosten: %.2f € = Auszahlung: %.2f €", vNetto.fahrtkosten, vNetto.auszahlung), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
             },
             confirmButton = {
                 TextButton(onClick = {
-                    aktuellerStundenlohn = vLohn; kvZusatz = vKv; steuerklasse = klWahl; kirchensteuer = kircheWahl; hatKinder = kinderWahl; lohnGlobalErzwingen = erzwingenWahl
-                    prefs.edit().putFloat("global_stundenlohn", vLohn.toFloat()).putFloat("kv_zusatz", vKv.toFloat()).putInt("steuerklasse", klWahl).putBoolean("kirchensteuer", kircheWahl).putBoolean("hat_kinder", kinderWahl).putBoolean("lohn_erzwingen", erzwingenWahl).apply()
+                    aktuellerStundenlohn = vLohn; kvZusatz = vKv; steuerklasse = klWahl; kirchensteuer = kircheWahl; kinderUnter25 = kinderWahl; lohnGlobalErzwingen = erzwingenWahl
+                    prefs.edit().putFloat("global_stundenlohn", vLohn.toFloat()).putFloat("kv_zusatz", vKv.toFloat()).putInt("steuerklasse", klWahl).putBoolean("kirchensteuer", kircheWahl).putInt("kinder_anzahl", kinderWahl).putBoolean("lohn_erzwingen", erzwingenWahl).apply()
                     val aktualisiert = alleEintraegeRoh.filter { it.typ == "SCHICHT" }.map { it.copy(stundenlohn = vLohn) }
                     if (aktualisiert.isNotEmpty()) viewModel.mehrereEintraegeSpeichern(aktualisiert)
                     zeigeStundenlohnDialog = false
-                    Toast.makeText(context, "Stundenlohn (${String.format(Locale.GERMAN, "%.2f", vLohn)} €) & Netto gespeichert!", Toast.LENGTH_SHORT).show()
                 }) { Text("Speichern") }
             },
             dismissButton = { TextButton(onClick = { zeigeStundenlohnDialog = false }) { Text("Abbrechen") } }
@@ -524,11 +558,16 @@ if (dialogDatum != null) {
                         val bmp = remember(fotoFile.absolutePath) { runCatching { BitmapFactory.decodeFile(fotoFile.absolutePath) }.getOrNull() }
                         if (bmp != null) {
                             Surface(shape = RoundedCornerShape(8.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), modifier = Modifier.fillMaxWidth().clickable { groesstesFoto = fotoFile }) {
-                                Row(modifier = Modifier.padding(8.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Image(bitmap = bmp.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(52.dp).clip(RoundedCornerShape(6.dp)))
-                                    Column {
-                                        Text("Datum: $tag", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
-                                        Text(notizenMap[tag] ?: "Tippen zum Vergrößern", style = MaterialTheme.typography.labelSmall)
+                                Row(modifier = Modifier.fillMaxWidth().padding(8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                        Image(bitmap = bmp.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.size(52.dp).clip(RoundedCornerShape(6.dp)))
+                                        Column {
+                                            Text("Datum: $tag", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                                            Text(notizenMap[tag] ?: "Tippen zum Vergrößern", style = MaterialTheme.typography.labelSmall)
+                                        }
+                                    }
+                                    IconButton(onClick = { runCatching { fotoFile.delete() }; fotoAktualisierungsZaehler++ }) {
+                                        Icon(Icons.Default.Delete, contentDescription = "Foto löschen", tint = MaterialTheme.colorScheme.error)
                                     }
                                 }
                             }
@@ -541,12 +580,18 @@ if (dialogDatum != null) {
     }
 
     if (groesstesFoto != null) {
-        val bmp = remember(groesstesFoto!!.absolutePath) { runCatching { BitmapFactory.decodeFile(groesstesFoto!!.absolutePath) }.getOrNull() }
+        val foto = groesstesFoto!!
+        val bmp = remember(foto.absolutePath) { runCatching { BitmapFactory.decodeFile(foto.absolutePath) }.getOrNull() }
         AlertDialog(
             onDismissRequest = { groesstesFoto = null },
-            title = { Text(groesstesFoto!!.name.substringBefore("_")) },
+            title = { Text(foto.name.substringBefore("_")) },
             text = { if (bmp != null) Image(bitmap = bmp.asImageBitmap(), contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxWidth().heightIn(min = 250.dp, max = 400.dp)) },
-            confirmButton = { TextButton(onClick = { groesstesFoto = null }) { Text("Schließen") } }
+            confirmButton = { TextButton(onClick = { groesstesFoto = null }) { Text("Schließen") } },
+            dismissButton = {
+                TextButton(onClick = { runCatching { foto.delete() }; groesstesFoto = null; fotoAktualisierungsZaehler++ }) {
+                    Text("Foto löschen", color = MaterialTheme.colorScheme.error)
+                }
+            }
         )
     }
 
@@ -572,3 +617,4 @@ if (dialogDatum != null) {
     }
     if (zeigeFehlerLog) { FehlerLogDialog(onSchliessen = { zeigeFehlerLog = false }) }
 }
+// --- ENDE BLOCK 6 VON 6 (MainActivity.kt) ---
